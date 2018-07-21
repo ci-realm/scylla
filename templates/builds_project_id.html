@@ -1,4 +1,4 @@
-<h2>
+<h2 class="{{.Status}}">
   Build of
   <a href="{{.ProjectLink}}">{{.Job.Hook.Repository.FullName}}</a>
   Revision
@@ -20,20 +20,24 @@
     {{.NixError}}
   </div>
 {{else}}
-  <div>
-    <h2>Stdout</h2>
-    <pre class="console-output">
-      <code class="shell">
-        {{- .NixLogStdout -}}
-      </code>
-    </pre>
-    <h2>Stderr</h2>
-    <pre class="console-output">
-      <code class="shell">
-        {{- .NixLogStderr -}}
-      </code>
-    </pre>
-    <h2>Errors</h2>
-    {{.NixLogErr}}
-  </div>
+  {{if .Status | eq "pending"}}
+    <div>
+      This build is still running, check back later.
+    </div>
+  {{else}}
+    <div>
+      <h2>Stdout</h2>
+      <pre class="console-output">
+        <code class="shell">
+          {{- .NixLogStdout -}}
+        </code>
+      </pre>
+      <h2>Stderr</h2>
+      <pre class="console-output">
+        <code class="shell">
+          {{- .NixLogStderr -}}
+        </code>
+      </pre>
+    </div>
+  {{end}}
 {{end}}

@@ -77,3 +77,15 @@ day, all we care about is that it works.
    
    The `recurseIntoAttrs` function can be used to also build nested attrsets.
    Otherwise only functions in the top-level will be built.
+
+
+## TODO
+
+- [ ] Execute actions depending on build result
+- [ ] Remove old builds automatically
+- [ ] Build everything into a profile, so comparing generations would be possible
+- [ ] Some better support for indicating tests
+- [ ] A way to run code coverage and send the result to CodeClimate etc.
+- [ ] When docker containers are built, push them to a registry
+- [ ] Better scheduling, right now it's limited by number of Cores
+- [ ] Cancel still running builds for PRs that are updated

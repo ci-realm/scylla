@@ -18,6 +18,7 @@ buildGoPackage rec {
   goDeps = ./deps.nix;
 
   preBuild = ''
+    sleep 30
     go generate ${goPackagePath}
   '' + (stdenv.lib.optionalString runTests "go test ${goPackagePath}");
 

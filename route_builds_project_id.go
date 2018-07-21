@@ -16,23 +16,28 @@ func getBuildsProjectId(ctx *macaron.Context) {
 	hookJSON := filepath.Join(idPath, "hook.json")
 	job := newGithubJobFromJSONFile(hookJSON)
 	if job == nil {
-		ctx.Error(404, "Couldn't find Build", projectName, buildID)
+		ctx.HTML(404, "not_found")
 		return
 	}
 
 	infos, err := buildIDInfos(idPath)
 	if err == nil {
+		ctx.Data["Status"] = "success"
 		ctx.Data["Results"] = infos
 	} else {
 		ctx.Error(500, err.Error())
 		return
 	}
 
-	if len(infos) == 0 { // apparently the build failed, let's ask nix log
+	if len(infos) == 0 {
 		sout, serr, err := job.nixLog()
-		ctx.Data["NixLogStdout"] = sout
-		ctx.Data["NixLogStderr"] = serr
-		ctx.Data["NixLogErr"] = err
+		if err == nil { // apparently the build failed
+			ctx.Data["NixLogStdout"] = sout
+			ctx.Data["NixLogStderr"] = serr
+			ctx.Data["Status"] = "failed"
+		} else { // we might not be done building it?
+			ctx.Data["Status"] = "pending"
+		}
 	}
 
 	ctx.Data["ProjectLink"] = "/builds/" + projectName
