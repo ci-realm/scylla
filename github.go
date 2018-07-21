@@ -22,7 +22,9 @@ import (
 
 func postHooksGithub(ctx *macaron.Context, Hook GithubHook) {
 	if ctx.Req.Header.Get("X-Github-Event") == "pull_request" {
-		go processGithub(pool, &Hook, progressHost(ctx))
+		if Hook.Action != "closed" {
+			go processGithub(pool, &Hook, progressHost(ctx))
+		}
 	}
 
 	ctx.JSON(200, map[string]string{"status": "OK"})
