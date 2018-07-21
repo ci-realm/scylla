@@ -1,8 +1,0 @@
-<h2>Recent Projects</h2>
-<%- projects.each do |project| -%>
-  <div>
-    <a href="<%= project.link %>"><%= project.link %></a>
-    <a href="/projects/<%= project.id %>/builds"><%= project.owner %>/<%= project.name %></a> has
-    <%= project.result_count %> Builds
-  </div>
-<%- end -%>

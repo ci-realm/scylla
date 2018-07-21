@@ -4,11 +4,11 @@ Scylla is a simple CI server that solves one thing:
 Evaluate [Nix](https://nixos.org/nix/) derivations and inform you and GitHub
 about the results.
 
-Scylla is implemented written in Crystal, uses PostgreSQL to store logs,
-metadata, and execution status, and Nix for building.
+Scylla is implemented in Go, and needs nothing but Nix for building, logging,
+and caching.
 
-I try to keep the moving parts as reliable as possible, since at the
-end of the day, all we care about is that it works.
+I try to keep the moving parts as reliable as possible, since at the end of the
+day, all we care about is that it works.
 
 ## What Scylla Can Do For You
 
@@ -37,12 +37,11 @@ end of the day, all we care about is that it works.
 
 3. Configure the server
 
-   Configuration is done via Environment variables. You need to set the following:
+   Configuration is done via Environment variables (although flags also work).
+   You need to set the following:
    
     * `GITHUB_TOKEN`: The token you created in the first step
-    * `DATABASE_URL`: An URL like `postgres://user:pass@host/dbname`
-    * `SERVER_URL`: The URL pointing to where you deployed the application,
-      like `https://scylla.rocks/` (Don't forget the trailing slash!)
+    * `GITHUB_USER`: The token you created in the first step
 
 4. Building the server
 
