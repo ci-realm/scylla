@@ -63,3 +63,12 @@ pre.console-output {
   font-family: monospace;
 }
 pre.console-output time {font-weight: bold;}
+.builds {
+  font-family: monospace;
+  font-size: 1.2em;
+  width: 100%;
+}
+.builds .time {
+  text-align: right;
+  padding-right: 1.5em;
+}

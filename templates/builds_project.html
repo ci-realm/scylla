@@ -1,6 +1,14 @@
 <h2>Builds for {{.Name}}</h2>
-{{range .Builds}}
-  <div>
-    <a href="/builds/{{.Project}}/{{.ID}}">{{.ID}}</a>
-  </div>
-{{end}}
+<table class="builds">
+  <thead>
+  <tr><th>Built</th><th>Commit</th></tr>
+  </thead>
+  <tbody>
+    {{range .Builds}}
+      <tr>
+        <td class="time"><time>{{.ModTime | FormatTime}}</time></td>
+        <td class="buildID"><a href="/builds/{{.Project}}/{{.ID}}">{{.ID}}</a></td>
+      </tr>
+    {{end}}
+  </tbody>
+</table>
