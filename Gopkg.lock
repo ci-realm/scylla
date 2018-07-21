@@ -79,24 +79,6 @@
   version = "v4.2.1"
 
 [[projects]]
-  name = "github.com/k0kubun/pp"
-  packages = ["."]
-  revision = "027a6d1765d673d337e687394dbe780dd64e2a1e"
-  version = "v2.3.0"
-
-[[projects]]
-  name = "github.com/mattn/go-colorable"
-  packages = ["."]
-  revision = "167de6bfdfba052fa6b2d3664c8f5272e23c9072"
-  version = "v0.0.9"
-
-[[projects]]
-  name = "github.com/mattn/go-isatty"
-  packages = ["."]
-  revision = "0360b2af4f38e8d38c7fce2a9f4e702702d73a39"
-  version = "v0.0.3"
-
-[[projects]]
   name = "github.com/smartystreets/assertions"
   packages = [
     ".",
@@ -155,6 +137,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "b0a887194ec1d96e781fd90cd61e4c1594bd54d8c1cf2a7c02a77b4b8d22b3b7"
+  inputs-digest = "71212cde736511d04d646d9885aac09ef28fb5deab774fb8138f8bac0b69feb4"
   solver-name = "gps-cdcl"
   solver-version = 1

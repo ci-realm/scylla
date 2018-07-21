@@ -109,33 +109,6 @@
     };
   }
   {
-    goPackagePath  = "github.com/k0kubun/pp";
-    fetch = {
-      type = "git";
-      url = "https://github.com/k0kubun/pp";
-      rev =  "e057ee7a28277be4d2af303443b6da377768181f";
-      sha256 = "00cppzr0hff6j9ff5jdfcx1d6ihmfpb3jxiw03nl7d4xakk4j8k6";
-    };
-  }
-  {
-    goPackagePath  = "github.com/mattn/go-colorable";
-    fetch = {
-      type = "git";
-      url = "https://github.com/mattn/go-colorable";
-      rev =  "efa589957cd060542a26d2dd7832fd6a6c6c3ade";
-      sha256 = "0kshi4hvm0ayrsxqxy0599iv81kryhd2fn9lwjyczpj593cq069r";
-    };
-  }
-  {
-    goPackagePath  = "github.com/mattn/go-isatty";
-    fetch = {
-      type = "git";
-      url = "https://github.com/mattn/go-isatty";
-      rev =  "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c";
-      sha256 = "0zs92j2cqaw9j8qx1sdxpv3ap0rgbs0vrvi72m40mg8aa36gd39w";
-    };
-  }
-  {
     goPackagePath  = "github.com/smartystreets/assertions";
     fetch = {
       type = "git";
