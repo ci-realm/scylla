@@ -2,12 +2,12 @@
 
 buildGoPackage rec {
   name = "scylla-unstable-${version}";
-  version = "2018-07-21";
-  rev = "1d6a7ec1c5753cfa4bf1c158770437815a7f9241";
+  version = "2018-07-23";
+  rev = "277ad49d97dd0861b889ee7a0d8922f4549affe4";
 
   goPackagePath = "github.com/manveru/scylla";
 
-  src = stdenv.lib.cleanSource ./.;
+  src = fetchGit ./.;
   # src = fetchFromGitHub {
   #   inherit rev;
   #   owner = "manveru";

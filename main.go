@@ -5,9 +5,11 @@ import (
 	"fmt"
 	"html/template"
 	"io"
+	"io/ioutil"
 	"log"
 	"os/exec"
 	"runtime"
+	"strings"
 	"time"
 
 	macaron "gopkg.in/macaron.v1"
@@ -26,10 +28,7 @@ var config struct {
 }
 
 func main() {
-	config.Host = "0.0.0.0"
-	config.Port = 8080
-
-	arg.MustParse(&config)
+	parseConfig()
 
 	pool = tunny.NewFunc(runtime.NumCPU(), worker)
 
@@ -54,6 +53,25 @@ func main() {
 	// mux.Handle("/", m)
 
 	// graceful.Run(config.Host+":"+config.Port, 2*time.Second, mux)
+}
+
+func parseConfig() {
+	config.Host = "0.0.0.0"
+	config.Port = 8080
+
+	arg.MustParse(&config)
+
+	if strings.HasPrefix(config.GithubUser, "/") {
+		if content, err := ioutil.ReadFile(config.GithubUser); err != nil {
+			config.GithubUser = string(content)
+		}
+	}
+
+	if strings.HasPrefix(config.GithubToken, "/") {
+		if content, err := ioutil.ReadFile(config.GithubToken); err != nil {
+			config.GithubToken = string(content)
+		}
+	}
 }
 
 func worker(work interface{}) interface{} {

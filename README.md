@@ -45,7 +45,7 @@ day, all we care about is that it works.
 
 4. Building the server
 
-       nix build -f .
+       nix build -f ci.nix scylla
 
 5. Running the server
 
@@ -81,11 +81,19 @@ day, all we care about is that it works.
 
 ## TODO
 
-- [ ] Execute actions depending on build result
+### Must have
+
+- [ ] Resume aborted builds when server restarts
+- [ ] Handle build timeouts better
 - [ ] Remove old builds automatically
-- [ ] Build everything into a profile, so comparing generations would be possible
-- [ ] Some better support for indicating tests
-- [ ] A way to run code coverage and send the result to CodeClimate etc.
-- [ ] When docker containers are built, push them to a registry
 - [ ] Better scheduling, right now it's limited by number of Cores
+- [ ] Option to restart builds easily
 - [ ] Cancel still running builds for PRs that are updated
+
+### For 1.0
+- [ ] Safely execute actions depending on build result (probably a webhook of sorts?)
+- [ ] When docker containers are built, push them to a registry
+
+### Nice to have
+- [ ] Some better support for indicating tests
+- [ ] Build everything into a profile, so comparing generations would be possible
