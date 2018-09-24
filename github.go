@@ -55,10 +55,10 @@ func (j *githubJob) build() string {
 
 	_ = os.RemoveAll(j.sourceDir())
 
-	_, _, err := j.clone()
-	if err != nil {
+	if err := j.clone(); err != nil {
 		logger.Fatalln("failed cloning", j.cloneURL(), err)
 	}
+
 	j.persistHook()
 	if err := j.nixBuild(); err == nil {
 		// keep around for now so we can get logs
@@ -112,19 +112,29 @@ func (j *githubJob) ciNixPath() string {
 	return filepath.Join(j.buildDir(), "source", "ci.nix")
 }
 
-func (j *githubJob) clone() (*bytes.Buffer, *bytes.Buffer, error) {
+func (j *githubJob) clone() error {
 	j.status("pending", "Cloning...")
 
-	runCmd(exec.Command(
-		"git", "clone", j.cloneURL(), j.sourceDir()))
+	if _, _, err := runCmd(exec.Command("git", "config", "--global",
+		`url.https://2dc2beec671266dddc5ce679ce6f95b2ab99aeab:x-oauth-basic@source.xing.com/.insteadOf`,
+		`https://source.xing.com/`)); err != nil {
+		return err
+	}
+
+	if _, _, err := runCmd(exec.Command(
+		"git", "clone", j.cloneURL(), j.sourceDir())); err != nil {
+		return err
+	}
 
 	j.status("pending", "Checkout...")
 
-	return runCmd(exec.Command(
+	_, _, err := runCmd(exec.Command(
 		"git",
 		"-c", "advice.detachedHead=false",
 		"-C", j.sourceDir(),
 		"checkout", j.sha()))
+
+	return err
 }
 
 func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
@@ -141,10 +151,11 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, *bytes.Bu
 			"--keep-build-log",
 			"--restrict-eval",
 			"--show-trace",
+			"--build-users-group", "",
 			"--max-build-log-size", "10000000",
 			"--max-silent-time", "30",
-			"--timeout", "30",
 			"--option", "allowed-uris", "https://github.com/ https://source.xing.com/",
+			"--timeout", "30",
 			"-I", "./nix",
 			"-I", j.sourceDir(),
 			"--argstr", "pname", j.pname(),

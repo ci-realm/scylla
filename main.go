@@ -89,31 +89,17 @@ func worker(work interface{}) interface{} {
 func runCmd(cmd *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
 	logger.Printf("%s %v", cmd.Path, cmd.Args)
 
-	stdoutIn, _ := cmd.StdoutPipe()
-	stderrIn, _ := cmd.StderrPipe()
-
 	var stdoutBuf, stderrBuf bytes.Buffer
+
+	cmd.Stdout = io.MultiWriter(&stdoutBuf, os.Stdout)
+	cmd.Stderr = io.MultiWriter(&stderrBuf, os.Stderr)
 
 	if err := cmd.Start(); err != nil {
 		return nil, nil, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
 	}
 
-	var errStdout, errStderr error
-
-	go func() {
-		_, errStdout = io.Copy(&stdoutBuf, stdoutIn)
-	}()
-
-	go func() {
-		_, errStderr = io.Copy(&stderrBuf, stderrIn)
-	}()
-
 	if err := cmd.Wait(); err != nil {
 		return &stdoutBuf, &stderrBuf, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
-	}
-
-	if errStdout != nil || errStderr != nil {
-		return &stdoutBuf, &stderrBuf, fmt.Errorf("failed to capture stdout or stderr\n")
 	}
 
 	return &stdoutBuf, &stderrBuf, nil
