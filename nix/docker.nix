@@ -10,8 +10,8 @@ let
   scylla = callPackage ./.. {};
 in
 dockerTools.buildImage {
-  name = "scylla";
-  tag = "production";
+  name = "quay.dc.xing.com/e-recruiting-api-team/scylla";
+  tag = Labels."com.xing.git.sha1";
   created = Labels."com.xing.git.time";
   config = {
     inherit Labels;
