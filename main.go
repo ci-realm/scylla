@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"runtime"
 	"strings"
@@ -17,6 +18,8 @@ import (
 	"github.com/Jeffail/tunny"
 	arg "github.com/alexflint/go-arg"
 )
+
+var logger = log.New(os.Stderr, "[scylla] ", log.Lshortfile|log.Ltime|log.Ldate|log.LUTC)
 
 var pool *tunny.Pool
 
@@ -84,7 +87,7 @@ func worker(work interface{}) interface{} {
 }
 
 func runCmd(cmd *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
-	log.Printf("%s %v", cmd.Path, cmd.Args)
+	logger.Printf("%s %v", cmd.Path, cmd.Args)
 
 	stdoutIn, _ := cmd.StdoutPipe()
 	stderrIn, _ := cmd.StderrPipe()

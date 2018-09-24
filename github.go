@@ -38,20 +38,20 @@ type githubJob struct {
 func newGithubJobFromJSONFile(path string) *githubJob {
 	file, err := os.Open(path)
 	if err != nil {
-		log.Printf("Couldn't open file %s: %s\n", path, err)
+		logger.Printf("Couldn't open file %s: %s\n", path, err)
 		return nil
 	}
 
 	job := &githubJob{Hook: &GithubHook{}}
 	if err = json.NewDecoder(file).Decode(job.Hook); err != nil {
-		log.Printf("Failed to decode JSON %s: %s\n", path, err)
+		logger.Printf("Failed to decode JSON %s: %s\n", path, err)
 		return nil
 	}
 	return job
 }
 
 func (j *githubJob) build() string {
-	log.Printf("Starting work on %s %s...", j.cloneURL(), j.sha())
+	logger.Printf("Starting work on %s %s...", j.cloneURL(), j.sha())
 
 	_ = os.RemoveAll(j.sourceDir())
 
@@ -131,6 +131,7 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, *bytes.Bu
 			subcmd,
 			"--allow-import-from-derivation",
 			"--auto-optimise-store",
+			"--builders-use-substitutes",
 			"--enforce-determinism",
 			"--fallback",
 			"--http2",
@@ -201,13 +202,13 @@ func (j *githubJob) writeOutputToFile(baseName string, output *bytes.Buffer) {
 	pathName := filepath.Join(j.buildDir(), baseName)
 	file, err := os.Create(pathName)
 	if err != nil {
-		log.Printf("Failed to create file %s: %s\n", pathName, err)
+		logger.Printf("Failed to create file %s: %s\n", pathName, err)
 		return
 	}
 	defer file.Close()
 	_, err = output.WriteTo(file)
 	if err != nil {
-		log.Printf("Failed to write file %s: %s\n", pathName, err)
+		logger.Printf("Failed to write file %s: %s\n", pathName, err)
 	}
 }
 
@@ -215,13 +216,13 @@ func (j *githubJob) persistHook() {
 	pathName := filepath.Join(j.buildDir(), "hook.json")
 	file, err := os.Create(pathName)
 	if err != nil {
-		log.Printf("Failed to create file %s: %s\n", pathName, err)
+		logger.Printf("Failed to create file %s: %s\n", pathName, err)
 		return
 	}
 	defer file.Close()
 	err = json.NewEncoder(file).Encode(j.Hook)
 	if err != nil {
-		log.Printf("Failed to write file %s: %s\n", pathName, err)
+		logger.Printf("Failed to write file %s: %s\n", pathName, err)
 	}
 }
 
@@ -258,7 +259,7 @@ func setGithubStatus(targetURL, statusURL, state, description string) {
 
 	_, err = http.DefaultClient.Do(req)
 	if err != nil {
-		log.Printf("Error while calling Github API: %s", err)
+		logger.Printf("Error while calling Github API: %s", err)
 	}
 }
 
@@ -280,6 +281,6 @@ func processGithub(pool *tunny.Pool, hook *GithubHook, host string) {
 	_, err := pool.ProcessTimed(j, time.Minute*30)
 	if err == tunny.ErrJobTimedOut {
 		j.status("error", "Timeout after 30 minutes")
-		log.Printf("Build of %s %s timed out\n", j.cloneURL(), j.sha())
+		logger.Printf("Build of %s %s timed out\n", j.cloneURL(), j.sha())
 	}
 }

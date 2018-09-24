@@ -1,7 +1,6 @@
 package main
 
 import (
-	"log"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -40,7 +39,7 @@ func projectPretty(name string) string {
 func subdirCount(name string) int {
 	info, err := os.Stat(name)
 	if err != nil {
-		log.Printf("Failed to stat %s: %s\n", name, err)
+		logger.Printf("Failed to stat %s: %s\n", name, err)
 		return 0
 	}
 

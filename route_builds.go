@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -16,18 +15,18 @@ func getBuilds(ctx *macaron.Context) {
 
 	filepath.Walk("ci", func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			log.Println(err)
+			logger.Println(err)
 			return err
 		}
 
 		if filepath.Base(path) == "result" {
 			resolved, err := filepath.EvalSymlinks(path + "/meta.json")
 			if err != nil {
-				log.Println(err)
+				logger.Println(err)
 			}
 			content, err := ioutil.ReadFile(resolved)
 			if err != nil {
-				log.Println(err)
+				logger.Println(err)
 			}
 			m := meta{Path: path}
 			json.NewDecoder(bytes.NewBuffer(content)).Decode(&m)
