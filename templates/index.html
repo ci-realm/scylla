@@ -16,7 +16,7 @@
 <p>Navigate to <a href="https://github.com/settings/tokens" class="uri">https://github.com/settings/tokens</a> and generate a new OAuth token. It only needs the <code>repo:status</code> permission.</p></li>
 <li><p>Add the webhook</p>
 <p>Go to <code>https://github.com/$owner/$repo/settings/hooks</code> (substitute your <code>owner</code>/<code>repo</code> in the URL).</p>
-Add a webhook that points to your server, like <code>https://$host/github-webhook</code> (substitute <code>host</code> here to the location of your server, you can also use something like <a href="http://ngrok.com/">ngrok</a> for trying it out).<br />
+Add a webhook that points to your server, like <code>https://$host/hooks/github</code> (substitute <code>host</code> here to the location of your server, you can also use something like <a href="http://ngrok.com/">ngrok</a> for trying it out).<br />
 These settings are required:
 <ul>
 <li>Content type: <code>application/json</code></li>

@@ -29,7 +29,7 @@ day, all we care about is that it works.
 
    Go to `https://github.com/$owner/$repo/settings/hooks` (substitute your `owner`/`repo` in the URL).
 
-   Add a webhook that points to your server, like `https://$host/github-webhook` (substitute `host` here to the location of your server, you can also use something like [ngrok](http://ngrok.com/) for trying it out).  
+   Add a webhook that points to your server, like `https://$host/hooks/github` (substitute `host` here to the location of your server, you can also use something like [ngrok](http://ngrok.com/) for trying it out).  
    These settings are required:
    * Content type: `application/json`
    * Secret: (anything you want)
