@@ -4,6 +4,9 @@
 , coreutils
 , curl
 , git-info
+, cacert
+, git
+, lib
 }:
 
 let
@@ -17,9 +20,10 @@ let
   scylla = callPackage ./.. {};
   baseImage = dockerTools.buildImage {
     name = "quay.dc.xing.com/e-recruiting-api-team/scylla";
+    contents = [ busybox curl coreutils git ];
     config = {
       Env = [
-        "PATH=${busybox}/bin:${curl}/bin:${coreutils}/bin"
+        "SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt"
       ];
     };
   };
@@ -32,9 +36,10 @@ in dockerTools.buildImage {
     inherit Labels;
     EntryPoint = ["${scylla}/bin/scylla"];
     Env = [
-      "PATH=${scylla}/bin:${busybox}/bin:${curl}/bin:${coreutils}/bin"
+      "PATH=${lib.makeBinPath [ scylla busybox curl coreutils ]}"
       "HOST=0.0.0.0"
       "PORT=80"
+      "SSL_CERT_FILE=${cacert}/etc/ssl/certs/ca-bundle.crt"
     ];
     ExposedPorts = {
       "80/tcp" = {};

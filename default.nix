@@ -1,4 +1,4 @@
-{ stdenv, buildGoPackage, fetchFromGitHub, makeWrapper }:
+{ stdenv, lib, buildGoPackage, fetchFromGitHub, makeWrapper, git, nixUnstable }:
 buildGoPackage rec {
   name = "scylla-unstable-${version}";
   version = "2018-07-23";
@@ -17,7 +17,9 @@ buildGoPackage rec {
   '';
 
   postInstall = ''
-    wrapProgram $bin/bin/scylla --run "cd $src"
+    wrapProgram $bin/bin/scylla \
+      --prefix PATH : ${lib.makeBinPath [ git nixUnstable ]} \
+      --run "cd $src"
   '';
 
   meta = {

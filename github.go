@@ -55,7 +55,10 @@ func (j *githubJob) build() string {
 
 	_ = os.RemoveAll(j.sourceDir())
 
-	j.clone()
+	_, _, err := j.clone()
+	if err != nil {
+		logger.Fatalln("failed cloning", j.cloneURL(), err)
+	}
 	j.persistHook()
 	if err := j.nixBuild(); err == nil {
 		// keep around for now so we can get logs
@@ -109,7 +112,7 @@ func (j *githubJob) ciNixPath() string {
 	return filepath.Join(j.buildDir(), "source", "ci.nix")
 }
 
-func (j *githubJob) clone() {
+func (j *githubJob) clone() (*bytes.Buffer, *bytes.Buffer, error) {
 	j.status("pending", "Cloning...")
 
 	runCmd(exec.Command(
@@ -117,7 +120,7 @@ func (j *githubJob) clone() {
 
 	j.status("pending", "Checkout...")
 
-	runCmd(exec.Command(
+	return runCmd(exec.Command(
 		"git",
 		"-c", "advice.detachedHead=false",
 		"-C", j.sourceDir(),
