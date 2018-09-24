@@ -15,7 +15,6 @@ dockerTools.buildImage {
   created = Labels."com.xing.git.time";
   config = {
     inherit Labels;
-    WorkingDir = "/";
     EntryPoint = ["${scylla}/bin/scylla"];
     Env = [
       "HOST=0.0.0.0"
@@ -25,5 +24,4 @@ dockerTools.buildImage {
       "80/tcp" = {};
     };
   };
-  contents = [ scylla ];
 }

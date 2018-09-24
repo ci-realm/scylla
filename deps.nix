@@ -5,8 +5,8 @@
     fetch = {
       type = "git";
       url = "https://github.com/BurntSushi/toml";
-      rev =  "a368813c5e648fee92e5f6c30e3944ff9d5e8895";
-      sha256 = "1sjxs2lwc8jpln80s4rlzp7nprbcljhy5mz4rf9995gq93wqnym5";
+      rev =  "b26d9c308763d68093482582cea63d69be07a0f0";
+      sha256 = "0k7v2i1d2d6si8gswn83qb84czhhia53v2wdy33yz9ppdidxk0ry";
     };
   }
   {
@@ -64,12 +64,21 @@
     };
   }
   {
+    goPackagePath  = "github.com/codegangsta/cli";
+    fetch = {
+      type = "git";
+      url = "https://github.com/codegangsta/cli";
+      rev =  "cfb38830724cc34fedffe9a2a29fb54fa9169cd1";
+      sha256 = "0y6f4sbzkiiwrxbl15biivj8c7qwxnvm3zl2dd3mw4wzg4x10ygj";
+    };
+  }
+  {
     goPackagePath  = "github.com/elazarl/go-bindata-assetfs";
     fetch = {
       type = "git";
       url = "https://github.com/elazarl/go-bindata-assetfs";
-      rev =  "38087fe4dafb822e541b3f7955075cc1c30bd294";
-      sha256 = "0wxpvzw3503xfp756qvyq9qgckmilwkzglxxfd0azqnkw58jn1hc";
+      rev =  "30f82fa23fd844bd5bb1e5f216db87fd77b5eb43";
+      sha256 = "1swfb37g6sga3awvcmxf49ngbpvjv7ih5an9f8ixjqcfcwnb7nzp";
     };
   }
   {
@@ -109,12 +118,39 @@
     };
   }
   {
+    goPackagePath  = "github.com/k0kubun/pp";
+    fetch = {
+      type = "git";
+      url = "https://github.com/k0kubun/pp";
+      rev =  "027a6d1765d673d337e687394dbe780dd64e2a1e";
+      sha256 = "1ha3nilwqxnyy9j8rasngbjjbfkxyzi48hk76k8dfd12xla8gvb9";
+    };
+  }
+  {
+    goPackagePath  = "github.com/mattn/go-colorable";
+    fetch = {
+      type = "git";
+      url = "https://github.com/mattn/go-colorable";
+      rev =  "167de6bfdfba052fa6b2d3664c8f5272e23c9072";
+      sha256 = "1nwjmsppsjicr7anq8na6md7b1z84l9ppnlr045hhxjvbkqwalvx";
+    };
+  }
+  {
+    goPackagePath  = "github.com/mattn/go-isatty";
+    fetch = {
+      type = "git";
+      url = "https://github.com/mattn/go-isatty";
+      rev =  "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c";
+      sha256 = "0zs92j2cqaw9j8qx1sdxpv3ap0rgbs0vrvi72m40mg8aa36gd39w";
+    };
+  }
+  {
     goPackagePath  = "github.com/smartystreets/assertions";
     fetch = {
       type = "git";
       url = "https://github.com/smartystreets/assertions";
-      rev =  "eb5b59917fa21f01252cee37e84631c7fb502d82";
-      sha256 = "1vnhkn03spzf9lr6nsw5shcrsa4sac0njq8iiakaskzf109170sb";
+      rev =  "7678a5452ebea5b7090a6b163f844c133f523da2";
+      sha256 = "0df2z0f4l0yzbx38bphwyjsyxfgsza1yw4cq46zikbnknqjb8s1c";
     };
   }
   {
@@ -122,8 +158,8 @@
     fetch = {
       type = "git";
       url = "https://github.com/smartystreets/goconvey";
-      rev =  "ef6db91d284a0e7badaa1f0c404c30aa7dee3aed";
-      sha256 = "16znlpsms8z2qc3airawyhzvrzcp70p9bx375i19bg489hgchxb7";
+      rev =  "9e8dc3f972df6c8fcc0375ef492c24d0bb204857";
+      sha256 = "1ph18rkl3ns3fgin5i4j54w5a69grrmf3apcsmnpdn1wlrbs3dxh";
     };
   }
   {
@@ -131,8 +167,8 @@
     fetch = {
       type = "git";
       url = "https://github.com/urfave/cli";
-      rev =  "8e01ec4cd3e2d84ab2fe90d8210528ffbb06d8ff";
-      sha256 = "0cpr10n4ps3gcdbcink71ry9hzhdb5rrcysmylybs8h2lzxqgc1i";
+      rev =  "cfb38830724cc34fedffe9a2a29fb54fa9169cd1";
+      sha256 = "0y6f4sbzkiiwrxbl15biivj8c7qwxnvm3zl2dd3mw4wzg4x10ygj";
     };
   }
   {
@@ -176,8 +212,8 @@
     fetch = {
       type = "git";
       url = "https://github.com/go-macaron/macaron";
-      rev =  "88a29ec402caf29b5f22f7817d884981bc6b48d9";
-      sha256 = "1lxshbvw82x5zbcr93y0vahj8b4fawjiac24kp7q62wwqdmz718p";
+      rev =  "c1be95e6d21e769e44e1ec33cec9da5837861c10";
+      sha256 = "1p2dqvsl4wilvch97w1kqf79b5nrfgj0hn5xabh1jz1s6xnzj852";
     };
   }
 ]
