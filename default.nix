@@ -1,5 +1,4 @@
-{ stdenv, buildGoPackage, fetchFromGitHub }:
-
+{ stdenv, buildGoPackage, fetchFromGitHub, makeWrapper }:
 buildGoPackage rec {
   name = "scylla-unstable-${version}";
   version = "2018-07-23";
@@ -7,6 +6,7 @@ buildGoPackage rec {
 
   goPackagePath = "github.com/manveru/scylla";
 
+  nativeBuildInputs = [ makeWrapper ];
   src = fetchGit ./.;
 
   goDeps = ./deps.nix;
@@ -14,6 +14,10 @@ buildGoPackage rec {
   preBuild = ''
     go generate ${goPackagePath}
     go test ${goPackagePath}
+  '';
+
+  postInstall = ''
+    wrapProgram $bin/bin/scylla --run "cd $src"
   '';
 
   meta = {
