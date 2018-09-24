@@ -2,7 +2,6 @@ package cli
 
 import (
 	"fmt"
-	"os"
 	"os/exec"
 
 	"github.com/codegangsta/cli"
@@ -13,17 +12,17 @@ type Evaluation struct {
 }
 
 func main() {
-	args := os.Args()
 	app := cli.NewApp()
 	app.Name = "scy"
-	app.Commands = []cli.Commad{
+	app.Commands = []cli.Command{
 		{
 			Name:        "push",
 			Usage:       "push rev",
 			Description: "Push the given revision to the CI server an initiate a build",
-			Flags:       []Flag{},
+			Flags:       []cli.Flag{},
 			Action: func(c *cli.Context) error {
 				fmt.Println("pushing", c.String("rev"))
+				return nil
 			},
 		},
 	}
