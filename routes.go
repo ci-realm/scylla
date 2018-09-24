@@ -6,6 +6,7 @@ import (
 )
 
 func setupRouting(m *macaron.Macaron) {
+	m.Get("/_system/alive", getAlive)
 	m.Get("/", getIndex)
 	m.Get("/builds", getBuilds)
 	m.Get("/builds/:project", getBuildsProject)
