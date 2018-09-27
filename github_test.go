@@ -1,10 +1,20 @@
 package main
 
 import (
+	"os"
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
 )
+
+func init() {
+	os.Setenv("GITHUB_USER", "nobody")
+	os.Setenv("GITHUB_TOKEN", "invalid")
+	os.Setenv("GITHUB_URL", "https://custom.github.io")
+	os.Setenv("BUILDERS", "none x86_64-linux")
+	os.Setenv("PRIVATE_SSH_KEY", "empty")
+	parseConfig()
+}
 
 func TestGithubJob(t *testing.T) {
 	job := &githubJob{Hook: &GithubHook{}}
@@ -26,6 +36,13 @@ func TestGithubJob(t *testing.T) {
 
 	Convey("progressURL", t, func() {
 		So(job.targetURL(), ShouldEqual, "http://example.com/builds/manveru_scylla/sample")
+	})
+}
+
+func TestGithubAuth(t *testing.T) {
+	Convey("Create correct configuration", t, func() {
+		So(githubAuthKey("https://source.xing.com/", "mytoken"), ShouldEqual,
+			"url.https://mytoken:x-oauth-basic@source.xing.com/.insteadOf")
 	})
 }
 

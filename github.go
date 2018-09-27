@@ -93,7 +93,7 @@ func (j *githubJob) pname() string {
 }
 
 func (j *githubJob) rootDir() string {
-	return "./ci"
+	return config.BuildDir
 }
 
 func (j *githubJob) buildDir() string {
@@ -112,17 +112,24 @@ func (j *githubJob) ciNixPath() string {
 	return filepath.Join(j.buildDir(), "source", "ci.nix")
 }
 
+func githubAuthKey(givenURL, token string) string {
+	u, err := url.Parse(givenURL)
+	if err != nil {
+		logger.Fatalln("Couldn't parse github url", err)
+	}
+	u.User = url.UserPassword(token, "x-oauth-basic")
+	return "url." + u.String() + ".insteadOf"
+}
+
 func (j *githubJob) clone() error {
 	j.status("pending", "Cloning...")
 
-	if _, _, err := runCmd(exec.Command("git", "config", "--global",
-		`url.https://2dc2beec671266dddc5ce679ce6f95b2ab99aeab:x-oauth-basic@source.xing.com/.insteadOf`,
-		`https://source.xing.com/`)); err != nil {
-		return err
-	}
-
 	if _, _, err := runCmd(exec.Command(
-		"git", "clone", j.cloneURL(), j.sourceDir())); err != nil {
+		"git",
+		"clone",
+		"-c", githubAuthKey(config.GithubUrl, config.GithubToken)+"="+config.GithubUrl,
+		j.cloneURL(),
+		j.sourceDir())); err != nil {
 		return err
 	}
 
@@ -131,6 +138,7 @@ func (j *githubJob) clone() error {
 	_, _, err := runCmd(exec.Command(
 		"git",
 		"-c", "advice.detachedHead=false",
+		"-c", githubAuthKey(config.GithubUrl, config.GithubToken)+"="+config.GithubUrl,
 		"-C", j.sourceDir(),
 		"checkout", j.sha()))
 
@@ -142,25 +150,30 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, *bytes.Bu
 		"nix",
 		append([]string{
 			subcmd,
-			"--allow-import-from-derivation",
-			"--auto-optimise-store",
-			"--builders-use-substitutes",
-			"--enforce-determinism",
-			"--fallback",
-			"--http2",
-			"--keep-build-log",
-			"--restrict-eval",
-			"--show-trace",
-			"--build-users-group", "",
-			"--max-build-log-size", "10000000",
-			"--max-silent-time", "30",
-			"--option", "allowed-uris", "https://github.com/ https://source.xing.com/",
-			"--timeout", "30",
+			"--builders", config.Builders,
+			"--max-jobs", "0", // force remote builds
 			"-I", "./nix",
 			"-I", j.sourceDir(),
 			"--argstr", "pname", j.pname(),
 		}, args...)...,
 	))
+
+	// "--allow-import-from-derivation",
+	// "--auto-optimise-store",
+	// "--builders-use-substitutes",
+	// "--enforce-determinism",
+	// "--fallback",
+	// "--http2",
+	// "--keep-build-log",
+	// "--restrict-eval",
+	// "--show-trace",
+	// "--max-build-log-size", "10000000",
+	// "--max-silent-time", "30",
+	// "--max-jobs", "0",
+	// "--builders", "ssh://root@ec2-3-120-166-103.eu-central-1.compute.amazonaws.com x86_64-linux",
+	// "--option", "allowed-uris", "https://github.com/ https://source.xing.com/",
+	// "--sandbox",
+	// "--timeout", "30",
 }
 
 func (j *githubJob) nixLog() (string, string, error) {
