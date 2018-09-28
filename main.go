@@ -165,7 +165,17 @@ func parseConfig() {
 	config.Port = 8080
 	config.BuildDir = "./ci"
 
-	arg.MustParse(&config)
+	err := arg.Parse(&config)
+	if err != nil { // needed for goconvey
+		if strings.HasPrefix(err.Error(), "unknown argument -test.v") {
+			return
+		}
+		if strings.HasPrefix(err.Error(), "unknown argument -test.coverprofile") {
+			return
+		}
+		fmt.Println(err)
+		os.Exit(1)
+	}
 
 	if strings.HasPrefix(config.GithubUser, "/") {
 		if content, err := ioutil.ReadFile(config.GithubUser); err != nil {

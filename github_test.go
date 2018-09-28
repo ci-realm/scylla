@@ -39,6 +39,19 @@ func TestGithubJob(t *testing.T) {
 	})
 }
 
+func TestLockID(t *testing.T) {
+	job := &githubJob{Hook: &GithubHook{}}
+	Convey("job lockID can be the highest Int64", t, func() {
+		job.Hook.PullRequest.Head.Sha = "ffffffffffffffffffffffffffffffffffffffff"
+		So(job.lockID(), ShouldEqual, 1934001156059249939)
+	})
+
+	Convey("job lockID should always work", t, func() {
+		job.Hook.PullRequest.Head.Sha = "0000000000000000000000000000000000000000"
+		So(job.lockID(), ShouldEqual, -800969582777417106)
+	})
+}
+
 func TestGithubAuth(t *testing.T) {
 	Convey("Create correct configuration", t, func() {
 		So(githubAuthKey("https://source.xing.com/", "mytoken"), ShouldEqual,

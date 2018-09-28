@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"hash/crc64"
 	"io/ioutil"
 	"log"
 	"net/http"
@@ -14,7 +15,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"time"
 
 	macaron "gopkg.in/macaron.v1"
@@ -85,6 +85,12 @@ func enqueueGithub(hook *GithubHook, host string) error {
 }
 
 func runGithubPR(j *que.Job) error {
+	if j.ErrorCount > 3 {
+		logger.Printf("giving up on que_job %d after 3 tries", j.ID)
+		j.Done()
+		return nil
+	}
+
 	jobItem := &githubJobItem{}
 	err := json.Unmarshal(j.Args, &jobItem)
 	if err != nil {
@@ -108,12 +114,20 @@ func runGithubPR(j *que.Job) error {
 	return err
 }
 
-func (j *githubJob) build() error {
-	lockID, err := strconv.ParseInt(j.sha()[0:16], 16, 64)
-	if err != nil {
-		return err
-	}
+var crcTable *crc64.Table
 
+func init() {
+	crcTable = crc64.MakeTable(crc64.ECMA)
+}
+
+// lockID uses CRC, which should be enough for our short-lived DB locks
+func (j *githubJob) lockID() int64 {
+	ui64 := crc64.Checksum([]byte(j.sha()), crcTable)
+	return int64(ui64)
+}
+
+func (j *githubJob) build() error {
+	lockID := j.lockID()
 	logger.Printf("%s: Waiting for lock %d...\n", j.id(), lockID)
 
 	ctx, _ := context.WithTimeout(context.Background(), time.Minute*10)
@@ -151,6 +165,8 @@ func (j *githubJob) build() error {
 		}
 	}
 
+	// once we get here, others can use this hash as well, as the source should be
+	// immutable anyway.
 	txn.Rollback()
 
 	return j.nixBuild()
@@ -167,50 +183,6 @@ func (j *githubJob) onQueue() error {
 func (j *githubJob) onTimeout(timeout time.Duration) {
 	j.status("error", "Timeout after "+timeout.String()+" minutes")
 	logger.Printf("Build of %s timed out\n", j.id())
-}
-
-var sanitizeUrlPath = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
-
-func (j *githubJob) saneFullName() string {
-	return sanitizeUrlPath.ReplaceAllString(j.Hook.Repository.FullName, "_")
-}
-
-func (j *githubJob) targetURL() string {
-	uri, _ := url.Parse(j.Host)
-	uri.Path = fmt.Sprintf("/builds/%s/%s", j.saneFullName(), j.sha())
-	return uri.String()
-}
-
-func (j *githubJob) cloneURL() string {
-	return j.Hook.PullRequest.Head.Repo.CloneURL
-}
-
-func (j *githubJob) sha() string {
-	return j.Hook.PullRequest.Head.Sha
-}
-
-func (j *githubJob) pname() string {
-	return j.saneFullName() + "-" + j.sha()
-}
-
-func (j *githubJob) rootDir() string {
-	return config.BuildDir
-}
-
-func (j *githubJob) buildDir() string {
-	return cleanJoin(j.rootDir(), j.saneFullName(), j.sha())
-}
-
-func (j *githubJob) sourceDir() string {
-	return filepath.Join(j.buildDir(), "source")
-}
-
-func (j *githubJob) resultLink() string {
-	return filepath.Join(j.buildDir(), "result")
-}
-
-func (j *githubJob) ciNixPath() string {
-	return filepath.Join(j.buildDir(), "source", "ci.nix")
 }
 
 func (j *githubJob) gitFetch() error {
@@ -237,8 +209,6 @@ func (j *githubJob) gitClone() error {
 	}
 
 	j.status("pending", "Checkout...")
-
-	logger.Println("before exec")
 
 	_, _, err = runCmd(exec.Command(
 		"git", "-c", "advice.detachedHead=false", "-C", j.sourceDir(), "checkout", j.sha()))
@@ -411,6 +381,50 @@ func (j *githubJob) findOrCreateProjectID() (int, error) {
 
 func (j *githubJob) createBuild(projectID int) (int, error) {
 	return insertBuild(j.conn, projectID, j)
+}
+
+var sanitizeUrlPath = regexp.MustCompile(`[^a-zA-Z0-9-]+`)
+
+func (j *githubJob) saneFullName() string {
+	return sanitizeUrlPath.ReplaceAllString(j.Hook.Repository.FullName, "_")
+}
+
+func (j *githubJob) targetURL() string {
+	uri, _ := url.Parse(j.Host)
+	uri.Path = fmt.Sprintf("/builds/%s/%s", j.saneFullName(), j.sha())
+	return uri.String()
+}
+
+func (j *githubJob) cloneURL() string {
+	return j.Hook.PullRequest.Head.Repo.CloneURL
+}
+
+func (j *githubJob) sha() string {
+	return j.Hook.PullRequest.Head.Sha
+}
+
+func (j *githubJob) pname() string {
+	return j.saneFullName() + "-" + j.sha()
+}
+
+func (j *githubJob) rootDir() string {
+	return config.BuildDir
+}
+
+func (j *githubJob) buildDir() string {
+	return cleanJoin(j.rootDir(), j.saneFullName(), j.sha())
+}
+
+func (j *githubJob) sourceDir() string {
+	return filepath.Join(j.buildDir(), "source")
+}
+
+func (j *githubJob) resultLink() string {
+	return filepath.Join(j.buildDir(), "result")
+}
+
+func (j *githubJob) ciNixPath() string {
+	return filepath.Join(j.buildDir(), "source", "ci.nix")
 }
 
 func setGithubStatus(targetURL, statusURL, state, description string) {
