@@ -1,13 +1,16 @@
 <h2>Builds for {{.Name}}</h2>
 <table class="builds">
   <thead>
-  <tr><th>Built</th><th>Commit</th></tr>
+    <tr>
+      <th>Built</th>
+      <th>Commit</th>
+    </tr>
   </thead>
   <tbody>
     {{range .Builds}}
       <tr>
-        <td class="time"><time>{{.ModTime | FormatTime}}</time></td>
-        <td class="buildID"><a href="/builds/{{.Project}}/{{.ID}}">{{.ID}}</a></td>
+        <td class="time"><time>{{.UpdatedAt.Time | FormatTime}}</time></td>
+        <td class="buildID"><a href="/builds/{{.ProjectName}}/{{.ID}}">{{.Hook.PullRequest.Head.Sha}}</a></td>
       </tr>
     {{end}}
   </tbody>

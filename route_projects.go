@@ -1,53 +1,32 @@
 package main
 
 import (
-	"os"
-	"path/filepath"
-	"reflect"
-	"strings"
-
+	"github.com/jackc/pgx"
 	macaron "gopkg.in/macaron.v1"
 )
 
 func getProjects(ctx *macaron.Context) {
-	projectNames, _ := filepath.Glob("ci/*")
-	projectInfos := make([]projectInfo, len(projectNames))
-
-	for i, name := range projectNames {
-		projectName := projectPretty(name)
-		buildCount := subdirCount(name)
-		projectInfos[i] = projectInfo{
-			Link:       filepath.Base(name),
-			Name:       projectName,
-			BuildCount: buildCount,
+	withConn(ctx, func(conn *pgx.Conn) error {
+		projects, err := findAllProjects(conn, 100)
+		if err != nil {
+			return err
 		}
-	}
 
-	ctx.Data["Projects"] = projectInfos
-	ctx.HTML(200, "projects")
+		ctx.Data["Projects"] = projects
+		ctx.HTML(200, "projects")
+		return nil
+	})
 }
 
-type projectInfo struct {
-	Name, Link string
-	BuildCount int
-}
-
-func projectPretty(name string) string {
-	return strings.Replace(filepath.Base(name), "_", "/", 1)
-}
-
-func subdirCount(name string) int {
-	info, err := os.Stat(name)
+func withConn(ctx *macaron.Context, f func(*pgx.Conn) error) {
+	conn, err := pgxpool.Acquire()
 	if err != nil {
-		logger.Printf("Failed to stat %s: %s\n", name, err)
-		return 0
+		ctx.Error(500, err.Error())
+		return
 	}
-
-	rvalue := reflect.ValueOf(info.Sys())
-	nlink := rvalue.Elem().FieldByName("Nlink")
-	if !nlink.IsValid() { // use the wasteful path
-		count, _ := filepath.Glob(filepath.Join(name, "/*/"))
-		return len(count)
+	defer pgxpool.Release(conn)
+	err = f(conn)
+	if err != nil {
+		ctx.Error(500, err.Error())
 	}
-	return int(nlink.Uint() - 2)
 }

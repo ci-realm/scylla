@@ -6,7 +6,7 @@ volumes:
     driver: local
 services:
   postgres:
-    image: timescale/timescaledb
+    image: postgres:10.5
     restart: always
     volumes:
       - 'scylla-pg:/var/lib/postgresql/data'

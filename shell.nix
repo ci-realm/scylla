@@ -11,6 +11,8 @@ in mkShell {
     nix
     dep2nix
     gotools
+    gocode
+    goimports
     goDeps.go
     nix-prefetch-git
     protobuf3_4

@@ -64,6 +64,15 @@
     };
   }
   {
+    goPackagePath  = "github.com/bgentry/que-go";
+    fetch = {
+      type = "git";
+      url = "https://github.com/bgentry/que-go";
+      rev =  "04623be4201ec7abb8d6cd0f172a4c612e216cc4";
+      sha256 = "190n8z790y4wn7k6rbqssymc55vrzx3wliqw7kvlw84jby572gny";
+    };
+  }
+  {
     goPackagePath  = "github.com/codegangsta/cli";
     fetch = {
       type = "git";
@@ -109,6 +118,15 @@
     };
   }
   {
+    goPackagePath  = "github.com/jackc/pgx";
+    fetch = {
+      type = "git";
+      url = "https://github.com/jackc/pgx";
+      rev =  "89f1e6ac7276b61d885db5e5aed6fcbedd1c7e31";
+      sha256 = "0qln29f443m9sw6yf0xy8m45wag9jg87hbwiplb511d5783l7jwk";
+    };
+  }
+  {
     goPackagePath  = "github.com/jtolds/gls";
     fetch = {
       type = "git";
@@ -127,6 +145,15 @@
     };
   }
   {
+    goPackagePath  = "github.com/lib/pq";
+    fetch = {
+      type = "git";
+      url = "https://github.com/lib/pq";
+      rev =  "4ded0e9383f75c197b3a2aaa6d590ac52df6fd79";
+      sha256 = "1zqnnyczaf00xi6xh53vq758v5bdlf0iz7kf22l02cal4i6px47i";
+    };
+  }
+  {
     goPackagePath  = "github.com/mattn/go-colorable";
     fetch = {
       type = "git";
@@ -142,6 +169,15 @@
       url = "https://github.com/mattn/go-isatty";
       rev =  "6ca4dbf54d38eea1a992b3c722a76a5d1c4cb25c";
       sha256 = "0zs92j2cqaw9j8qx1sdxpv3ap0rgbs0vrvi72m40mg8aa36gd39w";
+    };
+  }
+  {
+    goPackagePath  = "github.com/pkg/errors";
+    fetch = {
+      type = "git";
+      url = "https://github.com/pkg/errors";
+      rev =  "645ef00459ed84a119197bfb8d8205042c6df63d";
+      sha256 = "001i6n71ghp2l6kdl3qq1v2vmghcz3kicv9a5wgcihrzigm75pp5";
     };
   }
   {

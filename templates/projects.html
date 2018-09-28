@@ -1,2 +1,19 @@
 <h2>Projects</h2>
-{{range .Projects}}<a href="/builds/{{.Link}}">{{.Name}} - {{.BuildCount}}</a>{{end}}
+<table>
+  <thead>
+    <tr>
+      <th>Name</th>
+      <th>Builds</th>
+      <th>Created</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{- range .Projects}}
+    <tr>
+      <td><a href="{{.Link}}">{{.Name}}</a></td>
+      <td>{{.BuildCount}}</td>
+      <td>{{.CreatedAt}}</td>
+    </tr>
+    {{- end}}
+  </tbody>
+</table>

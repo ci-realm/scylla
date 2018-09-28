@@ -1,8 +1,8 @@
-<h2 class="{{.Status}}">
-  Build of
-  <a href="{{.ProjectLink}}">{{.Job.Hook.Repository.FullName}}</a>
+<h2 class="{{.Build.Status}}">
+  Build #{{.Build.ID}} of
+  <a href="{{.Build.ProjectLink}}">{{.Job.Hook.Repository.FullName}}</a>
   Revision
-  <a href="">{{.Job.Hook.PullRequest.Head.Sha}}</a>
+  <a href="">{{.Build.Hook.PullRequest.Head.Sha}}</a>
 </h2>
 {{range .Results}}
   <div>
@@ -20,7 +20,7 @@
     {{.NixError}}
   </div>
 {{else}}
-  {{if .Status | eq "pending"}}
+  {{if .Build.Status | eq "pending"}}
     <div>
       This build is still running, check back later.
     </div>

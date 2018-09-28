@@ -16,8 +16,9 @@ import (
 
 	macaron "gopkg.in/macaron.v1"
 
-	"github.com/Jeffail/tunny"
 	arg "github.com/alexflint/go-arg"
+	que "github.com/bgentry/que-go"
+	"github.com/jackc/pgx"
 )
 
 func init() {
@@ -29,28 +30,26 @@ func init() {
 
 var logger = log.New(os.Stderr, "[scylla] ", log.Lshortfile|log.Ltime|log.Ldate|log.LUTC)
 
-var pool *tunny.Pool
-
 var config struct {
-	BuildDir           string `arg:"--build-dir,env:BUILD_DIR"`
-	Builders           string `arg:"--builders,required,env:BUILDERS"`
-	BuildersPrivateKey string `arg:"--builders-private-key,env:BUILDERS_PRIVATE_KEY"`
-	GithubToken        string `arg:"--github-token,required,env:GITHUB_TOKEN"`
-	GithubUrl          string `arg:"--github-url,required,env:GITHUB_URL"`
-	GithubUser         string `arg:"--github-user,required,env:GITHUB_USER"`
-	Host               string `arg:"--host,env:HOST"`
-	Port               int    `arg:"--port,env:PORT"`
-	PrepareKnownHosts  bool   `arg:"--prepare-known-hosts,env:PREPARE_KNOWN_HOSTS"`
-	PrivateSSHKey      string `arg:"--private-ssh-key,required,env:PRIVATE_SSH_KEY"`
+	BuildDir string `arg:"--build-dir,env:BUILD_DIR"`
+	Builders string `arg:"--builders,required,env:BUILDERS"`
+	// BuildersPrivateKey string `arg:"--builders-private-key,env:BUILDERS_PRIVATE_KEY"`
+	GithubToken       string `arg:"--github-token,required,env:GITHUB_TOKEN"`
+	GithubUrl         string `arg:"--github-url,required,env:GITHUB_URL"`
+	GithubUser        string `arg:"--github-user,required,env:GITHUB_USER"`
+	Host              string `arg:"--host,env:HOST"`
+	Port              int    `arg:"--port,env:PORT"`
+	PrepareKnownHosts bool   `arg:"--prepare-known-hosts,env:PREPARE_KNOWN_HOSTS"`
+	PrivateSSHKey     string `arg:"--private-ssh-key,required,env:PRIVATE_SSH_KEY"`
+	DatabaseURL       string `arg:"--database-url,required,env:DATABASE_URL"`
 }
 
 func main() {
 	parseConfig()
 	populateKnownHosts()
+	setupQueue()
 
-	pool = tunny.NewFunc(runtime.NumCPU(), worker)
-
-	defer pool.Close()
+	defer pgxpool.Close()
 
 	m := macaron.Classic()
 	m.SetAutoHead(true)
@@ -73,8 +72,32 @@ func main() {
 	// graceful.Run(config.Host+":"+config.Port, 2*time.Second, mux)
 }
 
+var (
+	queueClient *que.Client
+	pgxpool     *pgx.ConnPool
+)
+
+func setupQueue() {
+	pgxcfg, err := pgx.ParseURI(config.DatabaseURL)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	pgxpool, err = pgx.NewConnPool(pgx.ConnPoolConfig{
+		ConnConfig:   pgxcfg,
+		AfterConnect: que.PrepareStatements,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	queueClient = que.NewClient(pgxpool)
+	workMap := que.WorkMap{"GithubPR": runGithubPR}
+	workers := que.NewWorkerPool(queueClient, workMap, runtime.NumCPU())
+	workers.Start()
+}
+
 // ssh-keyscan <host> >> ~/.ssh/known_hosts
-// FIXME: never do this outside docker
 func populateKnownHosts() {
 	if !config.PrepareKnownHosts {
 		return
@@ -83,7 +106,8 @@ func populateKnownHosts() {
 	knownHosts := []string{}
 	hosts := []string{}
 
-	// FIXME: --builders 'ssh://mac x86_64-darwin ; ssh://beastie x86_64-freebsd'
+	// TODO: new builders syntax is:
+	// --builders 'ssh://mac x86_64-darwin ; ssh://beastie x86_64-freebsd'
 	for _, line := range strings.Split(config.Builders, ";") {
 		words := strings.Split(line, " ")
 		if len(words) < 1 {

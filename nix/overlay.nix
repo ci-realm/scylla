@@ -7,7 +7,6 @@ let
 in {
   git-info = (self.callPackage "${manveru-nur-packages}/default.nix" {}).lib.git-info;
   go = super.go_1_11;
-  gotools = super.gotools.override { go = super.go_1_11; };
   decrypt-ejson = path:
     (builtins.fromJSON (builtins.readFile
       (super.runCommand "ejson" { nativeBuildInputs = with super; [ ruby ejson jq ]; } ''
