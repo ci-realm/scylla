@@ -13,29 +13,30 @@ func init() {
 	os.Setenv("GITHUB_URL", "https://custom.github.io")
 	os.Setenv("BUILDERS", "none x86_64-linux")
 	os.Setenv("PRIVATE_SSH_KEY", "empty")
+	os.Setenv("DATABASE_URL", "nothing")
 	parseConfig()
 }
 
 func TestGithubJob(t *testing.T) {
 	job := &githubJob{Hook: &GithubHook{}}
-	job.Hook.Repository.FullName = "manveru/scylla"
-	job.Hook.PullRequest.Head.Sha = "sample"
+	job.Hook.Repository.FullName = "user/repo"
+	job.Hook.PullRequest.Head.Sha = "sha"
 	job.Host = "http://example.com"
 
 	Convey("pname creation", t, func() {
-		So(job.pname(), ShouldEqual, "manveru_scylla-sample")
+		So(job.pname(), ShouldEqual, "user_repo-sha")
 	})
 
 	Convey("sourceDir", t, func() {
-		So(job.sourceDir(), ShouldEqual, "ci/manveru_scylla/sample/source")
+		So(job.sourceDir(), ShouldEqual, "ci/user_repo/sha/source")
 	})
 
 	Convey("resultLink", t, func() {
-		So(job.resultLink(), ShouldEqual, "ci/manveru_scylla/sample/result")
+		So(job.resultLink(), ShouldEqual, "ci/user_repo/sha/result")
 	})
 
 	Convey("progressURL", t, func() {
-		So(job.targetURL(), ShouldEqual, "http://example.com/builds/manveru_scylla/sample")
+		So(job.targetURL(), ShouldEqual, "http://example.com/builds/user/repo/sha")
 	})
 }
 

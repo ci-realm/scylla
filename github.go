@@ -139,6 +139,7 @@ func (j *githubJob) build() error {
 		return err
 	}
 
+	// TODO: ideally we want a machine-level lock instead.
 	_, err = txn.Exec(`SELECT pg_advisory_xact_lock($1);`, lockID)
 	if err != nil {
 		return err
@@ -391,8 +392,12 @@ func (j *githubJob) saneFullName() string {
 
 func (j *githubJob) targetURL() string {
 	uri, _ := url.Parse(j.Host)
-	uri.Path = fmt.Sprintf("/builds/%s/%s", j.saneFullName(), j.sha())
+	uri.Path = "/builds/" + j.fullName() + "/" + j.sha()
 	return uri.String()
+}
+
+func (j *githubJob) fullName() string {
+	return j.Hook.Repository.FullName
 }
 
 func (j *githubJob) cloneURL() string {
