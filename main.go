@@ -78,9 +78,11 @@ var (
 )
 
 func setupQueue() {
+	logger.Println("Setting up worker queue")
+
 	pgxcfg, err := pgx.ParseURI(config.DatabaseURL)
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatalln(err)
 	}
 
 	pgxpool, err = pgx.NewConnPool(pgx.ConnPoolConfig{
@@ -88,7 +90,7 @@ func setupQueue() {
 		AfterConnect: que.PrepareStatements,
 	})
 	if err != nil {
-		log.Fatal(err)
+		logger.Fatalln(err)
 	}
 
 	queueClient = que.NewClient(pgxpool)
