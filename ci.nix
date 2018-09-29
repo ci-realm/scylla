@@ -12,4 +12,5 @@
       scylla = pkgs.callPackage ./. {};
     };
   };
+  dbmate = pkgs.callPackage ./nix/pkgs/dbmate {};
 }

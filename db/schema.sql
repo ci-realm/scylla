@@ -167,19 +167,6 @@ ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
 
 
 --
--- Name: prs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.prs (
-    id integer NOT NULL,
-    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
-    updated_at timestamp with time zone,
-    project integer NOT NULL,
-    data jsonb NOT NULL
-);
-
-
---
 -- Name: que_jobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -324,14 +311,6 @@ ALTER TABLE ONLY public.projects
 
 
 --
--- Name: prs prs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.prs
-    ADD CONSTRAINT prs_pkey PRIMARY KEY (id);
-
-
---
 -- Name: que_jobs que_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -416,5 +395,5 @@ ALTER TABLE ONLY public.results
 -- Dbmate schema migrations
 --
 
-INSERT INTO schema_migrations (version) VALUES
+INSERT INTO public.schema_migrations (version) VALUES
     ('20180927123207');

@@ -53,7 +53,7 @@ in buildLayeredImage {
   name = "quay.dc.xing.com/e-recruiting-api-team/scylla";
   tag = git-info "git rev-parse --verify HEAD" ./..;
   created = "now";
-  maxLayers = 80;
+  maxLayers = 90;
   contents = [ # FIXME: graham has a patch for this he'll push soon
     (writeTextFile { name = "passwd"; text = "root:x:0:0:root:/:/bin/sh"; destination = "/etc/passwd"; })
     (writeTextFile { name = "nix.conf"; text = "build-users-group ="; destination = "/etc/nix/nix.conf"; })

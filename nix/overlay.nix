@@ -20,4 +20,5 @@ in {
       ''
     ));
   tagFromGit = self.git-info "git rev-parse --verify HEAD";
+  dbmate = self.callPackage ./pkgs/dbmate {};
 }

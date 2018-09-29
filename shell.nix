@@ -9,6 +9,7 @@ let
 in mkShell {
   buildInputs = [
     nix
+    dbmate
     dep2nix
     gotools
     gocode

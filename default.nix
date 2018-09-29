@@ -18,6 +18,8 @@ let
     ./shell.nix
     ./vendor
     ./nix
+    ./gin-bin
+    ./scylla
   ];
 in buildGoPackage rec {
   name = "scylla-unstable-${version}";
@@ -43,11 +45,11 @@ in buildGoPackage rec {
     wrapProgram $bin/bin/scylla --run "cd $src"
   '';
 
-  meta = {
+  meta = with stdenv.lib; {
     description = "A simple, easy to deploy Nix Continous Integration server";
     homepage = https://github.com/manveru/scylla;
-    license = stdenv.lib.licenses.mit;
-    maintainers = stdenv.lib.maintainers.manveru;
-    platforms = stdenv.lib.platforms.unix;
+    license = licenses.mit;
+    maintainers = [ maintainers.manveru ];
+    platforms = platforms.unix;
   };
 }
