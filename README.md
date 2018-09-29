@@ -1,3 +1,6 @@
+[![Test Coverage](https://codeclimate.dc.xing.com/api/v1/badges/2a3cd8a93cb08d87313d/test_coverage)](https://codeclimate.dc.xing.com/repos/5baf6601b556f83953000282/test_coverage)
+[![Maintainability](https://codeclimate.dc.xing.com/api/v1/badges/2a3cd8a93cb08d87313d/maintainability)](https://codeclimate.dc.xing.com/repos/5baf6601b556f83953000282/maintainability)
+
 # Nix Flavoured Continuous Integration
 
 Scylla is a simple CI server that solves one thing:
