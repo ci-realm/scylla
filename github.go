@@ -87,7 +87,6 @@ func enqueueGithub(hook *GithubHook, host string) error {
 func runGithubPR(j *que.Job) error {
 	if j.ErrorCount > 3 {
 		logger.Printf("giving up on que_job %d after 3 tries", j.ID)
-		j.Done()
 		return nil
 	}
 
@@ -282,33 +281,32 @@ func (j *githubJob) nixBuild() error {
 	return nil
 }
 
-func (j *githubJob) writeOutput(stdout, stderr *bytes.Buffer) {
+func (j *githubJob) writeOutput(stdoutBuf, stderrBuf *bytes.Buffer) {
+	stdout := stdoutBuf.Bytes()
 	j.writeOutputToFile("stdout", stdout)
-	j.writeOutputToFile("stderr", stderr)
 	j.writeOutputToDB("stdout", stdout)
+
+	stderr := stderrBuf.Bytes()
+	j.writeOutputToFile("stderr", stderr)
 	j.writeOutputToDB("stderr", stderr)
 }
 
-func (j *githubJob) writeOutputToFile(baseName string, output *bytes.Buffer) {
+func (j *githubJob) writeOutputToFile(baseName string, output []byte) {
 	pathName := filepath.Join(j.buildDir(), baseName)
-	file, err := os.Create(pathName)
+	err := ioutil.WriteFile(pathName, output, 0644)
 	if err != nil {
 		logger.Printf("Failed to create file %s: %s\n", pathName, err)
 		return
 	}
-	defer file.Close()
-	_, err = output.WriteTo(file)
-	if err != nil {
-		logger.Printf("Failed to write file %s: %s\n", pathName, err)
-	}
 }
 
-func (j *githubJob) writeOutputToDB(basename string, output *bytes.Buffer) {
-	insertLog(j.buildID, basename, output.String())
+func (j *githubJob) writeOutputToDB(basename string, output []byte) {
+	logger.Println(string(output))
+	insertLog(j.buildID, basename, string(output))
 }
 
 func (j *githubJob) status(state, description string) {
-	logger.Println(j.id(), ":", state, description)
+	logger.Println(j.id()+":", state, description)
 	setGithubStatus(
 		j.targetURL(),
 		j.Hook.PullRequest.StatusesURL,

@@ -41,12 +41,47 @@ var config struct {
 	Port              int    `arg:"--port,env:PORT"`
 	PrepareKnownHosts bool   `arg:"--prepare-known-hosts,env:PREPARE_KNOWN_HOSTS"`
 	PrivateSSHKey     string `arg:"--private-ssh-key,required,env:PRIVATE_SSH_KEY"`
+	PrivateSSHKeyPath string `arg:"--private-ssh-key-path,env:PRIVATE_SSH_KEY_PATH"`
 	DatabaseURL       string `arg:"--database-url,required,env:DATABASE_URL"`
+}
+
+func parseConfig() {
+	config.Host = "0.0.0.0"
+	config.Port = 8080
+	config.BuildDir = "./ci"
+	config.PrivateSSHKeyPath = "/id_ed25519"
+
+	err := arg.Parse(&config)
+	if err != nil { // needed for goconvey
+		if strings.HasPrefix(err.Error(), "unknown argument -test.v") {
+			return
+		}
+		if strings.HasPrefix(err.Error(), "unknown argument -test.coverprofile") {
+			return
+		}
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	if strings.HasPrefix(config.GithubUser, "/") {
+		if content, err := ioutil.ReadFile(config.GithubUser); err != nil {
+			config.GithubUser = string(content)
+		}
+	}
+
+	if strings.HasPrefix(config.GithubToken, "/") {
+		if content, err := ioutil.ReadFile(config.GithubToken); err != nil {
+			config.GithubToken = string(content)
+		}
+	}
 }
 
 func main() {
 	parseConfig()
 	populateKnownHosts()
+	tunnelStarted := make(chan bool)
+	go setupDatabaseTunnel(tunnelStarted)
+	<-tunnelStarted
 	setupQueue()
 
 	defer pgxpool.Close()
@@ -65,11 +100,6 @@ func main() {
 
 	setupRouting(m)
 	m.Run(config.Host, config.Port)
-
-	// mux := http.NewServeMux()
-	// mux.Handle("/", m)
-
-	// graceful.Run(config.Host+":"+config.Port, 2*time.Second, mux)
 }
 
 var (
@@ -84,6 +114,8 @@ func setupQueue() {
 	if err != nil {
 		logger.Fatalln(err)
 	}
+	pgxcfg.Port = localDBPort
+	pgxcfg.Host = "127.0.0.1"
 
 	pgxpool, err = pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:   pgxcfg,
@@ -133,7 +165,7 @@ func populateKnownHosts() {
 
 	writeFile("/.ssh/config", sshConfigFor(hosts), 0600)
 	writeFile("/.ssh/known_hosts", strings.Join(knownHosts, "\n"), 0600)
-	writeFile("/id_ed25519", config.PrivateSSHKey+"\n", 0600)
+	writeFile(config.PrivateSSHKeyPath, config.PrivateSSHKey+"\n", 0600)
 
 	// FIXME: hack until the image builder is fixed again
 	writeFile("/etc/passwd", "root:x:0:0:root:/:/bin/sh", 0644)
@@ -162,45 +194,6 @@ func writeFile(dest, content string, mode os.FileMode) {
 	}
 }
 
-func parseConfig() {
-	config.Host = "0.0.0.0"
-	config.Port = 8080
-	config.BuildDir = "./ci"
-
-	err := arg.Parse(&config)
-	if err != nil { // needed for goconvey
-		if strings.HasPrefix(err.Error(), "unknown argument -test.v") {
-			return
-		}
-		if strings.HasPrefix(err.Error(), "unknown argument -test.coverprofile") {
-			return
-		}
-		fmt.Println(err)
-		os.Exit(1)
-	}
-
-	if strings.HasPrefix(config.GithubUser, "/") {
-		if content, err := ioutil.ReadFile(config.GithubUser); err != nil {
-			config.GithubUser = string(content)
-		}
-	}
-
-	if strings.HasPrefix(config.GithubToken, "/") {
-		if content, err := ioutil.ReadFile(config.GithubToken); err != nil {
-			config.GithubToken = string(content)
-		}
-	}
-}
-
-func worker(work interface{}) interface{} {
-	switch w := work.(type) {
-	case *githubJob:
-		return w.build()
-	}
-
-	return "Couldn't find work type"
-}
-
 // runCmd returns stdout, stderr, and any errors
 func runCmd(cmd *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
 	logger.Printf("%s %v\n", cmd.Path, cmd.Args)
@@ -211,10 +204,12 @@ func runCmd(cmd *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
 	cmd.Stderr = io.MultiWriter(&stderrBuf, os.Stderr)
 
 	if err := cmd.Start(); err != nil {
+		io.WriteString(&stderrBuf, err.Error())
 		return nil, nil, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
 	}
 
 	if err := cmd.Wait(); err != nil {
+		io.WriteString(&stderrBuf, err.Error())
 		return &stdoutBuf, &stderrBuf, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
 	}
 

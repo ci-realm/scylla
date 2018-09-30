@@ -15,6 +15,7 @@ func getBuildsProject(ctx *macaron.Context) {
 		}
 		ctx.Data["Builds"] = builds
 		ctx.Data["Name"] = projectName
+		ctx.Data["ProjectLink"] = "/builds/" + projectName
 		ctx.HTML(200, "builds_project")
 		return nil
 	})

@@ -4,6 +4,17 @@
   Revision
   <a href="">{{.Build.Hook.PullRequest.Head.Sha}}</a>
 </h2>
+
+<h3>Stdout</h3>
+<pre class="console-output">
+  <code class="shell">{{- .Build.Stdout -}}</code>
+</pre>
+
+<h3>Stderr</h3>
+<pre class="console-output">
+  <code class="shell">{{- .Build.Stderr -}}</code>
+</pre>
+
 {{range .Results}}
   <div>
     <h3>Path</h3>

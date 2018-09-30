@@ -10,6 +10,29 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type dbProject struct {
+	ID         int64
+	CreatedAt  *pgtype.Timestamptz
+	UpdatedAt  *pgtype.Timestamptz
+	Name       string
+	BuildCount int
+}
+
+type dbBuild struct {
+	ID          int64
+	Status      string
+	CreatedAt   *pgtype.Timestamptz
+	UpdatedAt   *pgtype.Timestamptz
+	Hook        GithubHook
+	ProjectName string
+	Stdout      string
+	Stderr      string
+}
+
+func (b dbBuild) ProjectLink() string {
+	return "/builds/" + b.ProjectName
+}
+
 func insertBuild(db *pgx.Conn, projectID int, job *githubJob) (int, error) {
 	buf := &bytes.Buffer{}
 	if err := json.NewEncoder(buf).Encode(job.Hook); err != nil {
@@ -51,11 +74,29 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbB
 	}
 
 	err := db.QueryRow(
-		`SELECT builds.id, builds.status, builds.created_at, builds.updated_at, builds.data FROM builds
-     JOIN projects on projects.id = builds.project_id
-     WHERE projects.name = $1 AND builds.id = $2;`,
+		`SELECT
+        builds.id,
+        builds.status,
+        builds.created_at,
+        builds.updated_at,
+        builds.data,
+        stderr.content,
+        stdout.content
+      FROM builds
+      JOIN projects ON projects.id = builds.project_id
+      JOIN logs AS stderr ON stderr.build_id = builds.id AND stderr.kind = 'stderr'
+      JOIN logs AS stdout ON stdout.build_id = builds.id AND stdout.kind = 'stdout'
+      WHERE projects.name = $1 AND builds.id = $2;`,
 		projectName, buildID,
-	).Scan(&build.ID, &build.Status, build.CreatedAt, build.UpdatedAt, &buildData)
+	).Scan(
+		&build.ID,
+		&build.Status,
+		build.CreatedAt,
+		build.UpdatedAt,
+		&buildData,
+		&build.Stderr,
+		&build.Stdout,
+	)
 
 	if err != nil {
 		return build, err
@@ -63,14 +104,6 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbB
 
 	err = json.NewDecoder(bytes.NewBuffer(buildData)).Decode(&build.Hook)
 	return build, err
-}
-
-type dbProject struct {
-	ID         int64
-	CreatedAt  *pgtype.Timestamptz
-	UpdatedAt  *pgtype.Timestamptz
-	Name       string
-	BuildCount int
 }
 
 func (d dbProject) Link() string {
@@ -88,19 +121,6 @@ func findProjectByID(db *pgx.Conn, projectID int) (dbProject, error) {
 		projectID,
 	).Scan(&project.ID, &project.Name, &project.BuildCount)
 	return project, err
-}
-
-type dbBuild struct {
-	ID          int64
-	Status      string
-	CreatedAt   *pgtype.Timestamptz
-	UpdatedAt   *pgtype.Timestamptz
-	Hook        GithubHook
-	ProjectName string
-}
-
-func (b dbBuild) ProjectLink() string {
-	return "/builds/" + b.ProjectName
 }
 
 func findBuildsByProjectName(db *pgx.Conn, projectName string) ([]dbBuild, error) {
@@ -136,7 +156,7 @@ func findBuildsByProjectName(db *pgx.Conn, projectName string) ([]dbBuild, error
 
 func findAllProjects(db *pgx.Conn, limit int) ([]dbProject, error) {
 	rows, err := db.Query(
-		`SELECT projects.id, projects.name, count(distinct(builds.id)) FROM projects
+		`SELECT projects.id, projects.name, projects.created_at, count(distinct(builds.id)) FROM projects
      JOIN builds ON builds.project_id = projects.id
      GROUP BY projects.id
      LIMIT $1;`,
@@ -148,8 +168,8 @@ func findAllProjects(db *pgx.Conn, limit int) ([]dbProject, error) {
 
 	out := []dbProject{}
 	for rows.Next() {
-		project := dbProject{}
-		err := rows.Scan(&project.ID, &project.Name, &project.BuildCount)
+		project := dbProject{CreatedAt: &pgtype.Timestamptz{}}
+		err := rows.Scan(&project.ID, &project.Name, project.CreatedAt, &project.BuildCount)
 		if err != nil {
 			return nil, err
 		}
