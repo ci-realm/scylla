@@ -1,0 +1,14 @@
+<h2>Active Repositories</h2>
+<table>
+  <tbody>
+    {{- range .Repos}}
+    <tr>
+      <td>{{.Status}} <a href="{{.Link}}">{{.Name}}</a></td>
+      <td>#{{.LastBuildNumber}}</td>
+      <td>{{.MainBranch}}</td>
+      <td><a href="{{.CompareLink}}">{{.SHA}}</a></td>
+      <td>{{.LastFailure | FormatTime}}</td>
+    </tr>
+    {{- end}}
+  </tbody>
+</table>

@@ -91,6 +91,24 @@
     };
   }
   {
+    goPackagePath  = "github.com/gammazero/deque";
+    fetch = {
+      type = "git";
+      url = "https://github.com/gammazero/deque";
+      rev =  "f6adf94963e448a692b33e9ddc931ff10afbb79b";
+      sha256 = "0nmw03xhhlyrqfa2vfmcbs1jaglizsvp09zdbq6ikq06x937wk16";
+    };
+  }
+  {
+    goPackagePath  = "github.com/gammazero/workerpool";
+    fetch = {
+      type = "git";
+      url = "https://github.com/gammazero/workerpool";
+      rev =  "48371c973101f1425ff30aef37cbaf0c65822b22";
+      sha256 = "1gdp497bwqykcbgl0a7l7wh6mw9r048waiplg5bab8aw1p4vj2wj";
+    };
+  }
+  {
     goPackagePath  = "github.com/go-macaron/binding";
     fetch = {
       type = "git";
@@ -178,6 +196,15 @@
       url = "https://github.com/pkg/errors";
       rev =  "645ef00459ed84a119197bfb8d8205042c6df63d";
       sha256 = "001i6n71ghp2l6kdl3qq1v2vmghcz3kicv9a5wgcihrzigm75pp5";
+    };
+  }
+  {
+    goPackagePath  = "github.com/rgzr/sshtun";
+    fetch = {
+      type = "git";
+      url = "https://github.com/rgzr/sshtun";
+      rev =  "a32b71083b00b8bd5b79273c3f0bc61a77bea722";
+      sha256 = "02hly5bar0rj9mvizkp638sd60jb9d3xzm08bmalqfkf9gsmyhds";
     };
   }
   {

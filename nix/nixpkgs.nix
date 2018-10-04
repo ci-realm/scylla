@@ -1,7 +1,7 @@
 import (
   fetchTarball {
-    url = https://github.com/manveru/nixpkgs/archive/3a275ac1eb4ea538222e8b282d9804bab6e6e543.tar.gz;
-    sha256 = "19xm135jxg9n8bkm5ncwr3bq41jp93nhw0jh81c0rh7aq0cahl4r";
+    url = https://github.com/manveru/nixpkgs/archive/92d46857d5b8de67cf8ba62ba2e1d13c92db9ca7.tar.gz;
+    sha256 = "1anmif94caphi2539n57fs0dyp46q3xqx8i8wrc7cg70729jvhra";
   }
 ) {
   config = {};

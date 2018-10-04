@@ -17,16 +17,3 @@ func getProjects(ctx *macaron.Context) {
 		return nil
 	})
 }
-
-func withConn(ctx *macaron.Context, f func(*pgx.Conn) error) {
-	conn, err := pgxpool.Acquire()
-	if err != nil {
-		ctx.Error(500, err.Error())
-		return
-	}
-	defer pgxpool.Release(conn)
-	err = f(conn)
-	if err != nil {
-		ctx.Error(500, err.Error())
-	}
-}

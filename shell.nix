@@ -14,6 +14,7 @@ in mkShell {
     gotools
     gocode
     goimports
+    golangci-lint
     goDeps.go
     nix-prefetch-git
     protobuf3_4

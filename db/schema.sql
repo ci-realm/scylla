@@ -62,6 +62,37 @@ CREATE FUNCTION public.auto_row_updated_at() RETURNS trigger
 $$;
 
 
+--
+-- Name: mark_build_finished(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.mark_build_finished() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+  BEGIN
+    IF NEW.status = 'failure' OR NEW.status = 'success' THEN
+      NEW.finished_at = clock_timestamp();
+    END IF;
+    RETURN NEW;
+  END;
+$$;
+
+
+--
+-- Name: notify_queue_inserted(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_queue_inserted() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+  DECLARE
+  BEGIN
+    PERFORM pg_notify(CAST('scylla_queue' AS TEXT), CAST(NEW.name AS text) || ' ' || CAST(NEW.id AS text));
+    RETURN NEW;
+  END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_with_oids = false;
@@ -74,6 +105,8 @@ CREATE TABLE public.builds (
     id integer NOT NULL,
     created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
     updated_at timestamp with time zone,
+    status_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    finished_at timestamp with time zone,
     project_id integer NOT NULL,
     status public.build_status DEFAULT 'queue'::public.build_status NOT NULL,
     data jsonb NOT NULL
@@ -167,6 +200,19 @@ ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
 
 
 --
+-- Name: prs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.prs (
+    id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    updated_at timestamp with time zone,
+    project integer NOT NULL,
+    data jsonb NOT NULL
+);
+
+
+--
 -- Name: que_jobs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -199,6 +245,39 @@ CREATE SEQUENCE public.que_jobs_job_id_seq
 --
 
 ALTER SEQUENCE public.que_jobs_job_id_seq OWNED BY public.que_jobs.job_id;
+
+
+--
+-- Name: queue; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.queue (
+    id bigint NOT NULL,
+    name text DEFAULT 'default'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    run_at timestamp with time zone DEFAULT now() NOT NULL,
+    args jsonb DEFAULT '{}'::json NOT NULL,
+    errors text[] DEFAULT '{}'::text[]
+);
+
+
+--
+-- Name: queue_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.queue_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: queue_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.queue_id_seq OWNED BY public.queue.id;
 
 
 --
@@ -272,6 +351,13 @@ ALTER TABLE ONLY public.que_jobs ALTER COLUMN job_id SET DEFAULT nextval('public
 
 
 --
+-- Name: queue id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.queue ALTER COLUMN id SET DEFAULT nextval('public.queue_id_seq'::regclass);
+
+
+--
 -- Name: results id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -311,11 +397,27 @@ ALTER TABLE ONLY public.projects
 
 
 --
+-- Name: prs prs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prs
+    ADD CONSTRAINT prs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: que_jobs que_jobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.que_jobs
     ADD CONSTRAINT que_jobs_pkey PRIMARY KEY (queue, priority, run_at, job_id);
+
+
+--
+-- Name: queue queue_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.queue
+    ADD CONSTRAINT queue_pkey PRIMARY KEY (id);
 
 
 --
@@ -332,6 +434,20 @@ ALTER TABLE ONLY public.results
 
 ALTER TABLE ONLY public.schema_migrations
     ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
+-- Name: queue_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX queue_name ON public.queue USING btree (id, name);
+
+
+--
+-- Name: builds after_build; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER after_build BEFORE UPDATE ON public.builds FOR EACH ROW EXECUTE PROCEDURE public.mark_build_finished();
 
 
 --
@@ -360,6 +476,13 @@ CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON public.logs FOR EACH ROW EXE
 --
 
 CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON public.results FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
+
+
+--
+-- Name: queue queue_insert_notify; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER queue_insert_notify AFTER INSERT ON public.queue FOR EACH ROW EXECUTE PROCEDURE public.notify_queue_inserted();
 
 
 --

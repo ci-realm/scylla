@@ -63,17 +63,17 @@ func getBuildsProjectId(ctx *macaron.Context) {
 }
 
 type projectIDResult struct {
-	NixPath              string
-	NixStdout, NixStderr string
-	NixError             error
+	NixPath  string
+	Output   string
+	NixError error
 }
 
-func nixLog(nixPath string) (string, string, error) {
-	stdoutBuf, stderrBuf, err := runCmd(exec.Command("nix", "log", nixPath))
+func nixLog(nixPath string) (string, error) {
+	output, err := runCmd(exec.Command("nix", "log", nixPath))
 	if err != nil {
-		return "", "", err
+		return "", err
 	}
-	return stdoutBuf.String(), stderrBuf.String(), nil
+	return output.String(), nil
 }
 
 func buildIDInfos(idPath string) (map[string]projectIDResult, error) {
@@ -84,12 +84,11 @@ func buildIDInfos(idPath string) (map[string]projectIDResult, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Failed resolving result link %s: %s\n", resultLink, err)
 		}
-		no, ne, err := nixLog(resolved)
+		out, err := nixLog(resolved)
 		infos[resolved] = projectIDResult{
-			NixPath:   resolved,
-			NixStdout: no,
-			NixStderr: ne,
-			NixError:  err,
+			NixPath:  resolved,
+			Output:   out,
+			NixError: err,
 		}
 	}
 	return infos, nil

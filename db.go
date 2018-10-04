@@ -23,15 +23,21 @@ type dbBuild struct {
 	Status      string
 	CreatedAt   *pgtype.Timestamptz
 	UpdatedAt   *pgtype.Timestamptz
+	StatusAt    *pgtype.Timestamptz
+	FinishedAt  *pgtype.Timestamptz
 	Hook        GithubHook
 	ProjectName string
-	Stdout      string
-	Stderr      string
+	Log         *pgtype.Text
 }
 
-func (b dbBuild) ProjectLink() string {
-	return "/builds/" + b.ProjectName
-}
+func (b dbBuild) BranchName() string       { return b.Hook.PullRequest.Base.Ref }
+func (b dbBuild) Owner() string            { return b.Hook.Repository.Owner.Login }
+func (b dbBuild) ProjectLink() string      { return "/builds/" + b.ProjectName }
+func (b dbBuild) Repo() string             { return b.Hook.Repository.Name }
+func (b dbBuild) Title() string            { return b.Hook.PullRequest.Title }
+func (b dbBuild) GithubLink() string       { return b.Hook.PullRequest.HTMLURL }
+func (b dbBuild) SHA() string              { return b.Hook.PullRequest.Head.Sha }
+func (b dbBuild) BuildTime() time.Duration { return b.FinishedAt.Time.Sub(b.CreatedAt.Time) }
 
 func insertBuild(db *pgx.Conn, projectID int, job *githubJob) (int, error) {
 	buf := &bytes.Buffer{}
@@ -65,12 +71,64 @@ func findBuildByID(db *pgx.Conn, buildID int) (*githubJob, error) {
 	return &githubJob{Hook: hook, conn: db, buildID: buildID}, nil
 }
 
+func findBuilds(db *pgx.Conn) ([]dbBuild, error) {
+	builds := []dbBuild{}
+	rows, err := db.Query(
+		`SELECT
+        builds.id,
+        builds.status,
+        builds.created_at,
+        builds.updated_at,
+        builds.status_at,
+        builds.finished_at,
+        projects.name,
+        builds.data
+      FROM builds
+      JOIN projects ON projects.id = builds.project_id
+      LIMIT 100;`,
+	)
+
+	if err != nil {
+		return builds, err
+	}
+
+	for rows.Next() {
+		build := dbBuild{Hook: GithubHook{},
+			CreatedAt:  &pgtype.Timestamptz{},
+			UpdatedAt:  &pgtype.Timestamptz{},
+			StatusAt:   &pgtype.Timestamptz{},
+			FinishedAt: &pgtype.Timestamptz{},
+		}
+
+		var buildData []byte
+
+		rows.Scan(
+			&build.ID,
+			&build.Status,
+			build.CreatedAt,
+			build.UpdatedAt,
+			build.StatusAt,
+			build.FinishedAt,
+			&build.ProjectName,
+			&buildData,
+		)
+		err = json.NewDecoder(bytes.NewBuffer(buildData)).Decode(&build.Hook)
+		builds = append(builds, build)
+		if err != nil {
+			return builds, err
+		}
+	}
+
+	return builds, nil
+}
+
 func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbBuild, error) {
 	var buildData []byte
 	build := dbBuild{Hook: GithubHook{},
 		CreatedAt:   &pgtype.Timestamptz{},
 		UpdatedAt:   &pgtype.Timestamptz{},
 		ProjectName: projectName,
+		Log:         &pgtype.Text{},
 	}
 
 	err := db.QueryRow(
@@ -80,12 +138,12 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbB
         builds.created_at,
         builds.updated_at,
         builds.data,
-        stderr.content,
-        stdout.content
-      FROM builds
+        logs.content
+				data#>>'{pull_request,head,repo,owner,login}' AS owner,
+				data#>>'{pull_request,head,repo,name}' AS repo
+			FROM builds
       JOIN projects ON projects.id = builds.project_id
-      JOIN logs AS stderr ON stderr.build_id = builds.id AND stderr.kind = 'stderr'
-      JOIN logs AS stdout ON stdout.build_id = builds.id AND stdout.kind = 'stdout'
+      LEFT OUTER JOIN logs ON logs.build_id = builds.id
       WHERE projects.name = $1 AND builds.id = $2;`,
 		projectName, buildID,
 	).Scan(
@@ -94,8 +152,7 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbB
 		build.CreatedAt,
 		build.UpdatedAt,
 		&buildData,
-		&build.Stderr,
-		&build.Stdout,
+		&build.Log,
 	)
 
 	if err != nil {
@@ -127,7 +184,8 @@ func findBuildsByProjectName(db *pgx.Conn, projectName string) ([]dbBuild, error
 	rows, err := db.Query(
 		`SELECT builds.id, builds.status, builds.created_at, builds.updated_at, builds.data FROM builds
      JOIN projects on projects.id = builds.project_id
-     WHERE projects.name = $1;`,
+     WHERE projects.name = $1
+     ORDER BY builds.created_at DESC LIMIT 100;`,
 		projectName,
 	)
 
@@ -179,7 +237,10 @@ func findAllProjects(db *pgx.Conn, limit int) ([]dbProject, error) {
 }
 
 func updateBuildStatus(job *githubJob, status string) {
-	_, err := pgxpool.Exec(`UPDATE builds SET status = $1 WHERE id = $2;`, status, job.buildID)
+	_, err := pgxpool.Exec(
+		`UPDATE builds SET status = $1, status_at = now()
+     WHERE id = $2;`,
+		status, job.buildID)
 	if err != nil {
 		logger.Println("Failed updating build status:", err)
 	}

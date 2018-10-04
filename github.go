@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -15,12 +16,13 @@ import (
 	"os/exec"
 	"path/filepath"
 	"regexp"
+	"strings"
 	"time"
 
 	macaron "gopkg.in/macaron.v1"
 
-	que "github.com/bgentry/que-go"
 	"github.com/jackc/pgx"
+	"github.com/manveru/scylla/queue"
 )
 
 type githubJob struct {
@@ -71,45 +73,40 @@ func enqueueGithub(hook *GithubHook, host string) error {
 		return err
 	}
 
-	ghJobItem := &githubJobItem{BuildID: buildID, Host: host}
-	args, err := json.Marshal(ghJobItem)
-	if err != nil {
-		return err
-	}
-
-	err = queueClient.Enqueue(&que.Job{Type: "GithubPR", Args: args})
-	if err != nil {
-		logger.Println("Enqueue:", err)
-	}
-	return err
+	item := &queue.Item{Args: map[string]interface{}{"build_id": buildID, "Host": host}}
+	return jobQueue.Insert(item)
 }
 
-func runGithubPR(j *que.Job) error {
-	if j.ErrorCount > 3 {
-		logger.Printf("giving up on que_job %d after 3 tries", j.ID)
+func runGithubPR(j *queue.Item) error {
+	if len(j.Errors) > 3 {
+		logger.Printf("giving up on job %d after 3 tries", j.ID)
 		return nil
 	}
 
-	jobItem := &githubJobItem{}
-	err := json.Unmarshal(j.Args, &jobItem)
+	args := j.Args.(map[string]interface{})
+	host := args["Host"].(string)
+	buildID := int(args["build_id"].(float64))
+
+	conn, err := pgxpool.Acquire()
 	if err != nil {
 		logger.Println(err)
 		return err
 	}
+	defer pgxpool.Release(conn)
 
-	conn := j.Conn()
-
-	job, err := findBuildByID(conn, jobItem.BuildID)
+	job, err := findBuildByID(conn, buildID)
 	if err != nil {
 		logger.Println(err)
 		return err
 	}
 
 	job.conn = conn
-	job.Host = jobItem.Host
+	job.Host = host
 
 	err = job.build()
-	logger.Println(err)
+	if err != nil {
+		logger.Println(err)
+	}
 	return err
 }
 
@@ -125,24 +122,29 @@ func (j *githubJob) lockID() int64 {
 	return int64(ui64)
 }
 
-func (j *githubJob) build() error {
+func (j *githubJob) aquireDBLock() (error, *pgx.Tx) {
 	lockID := j.lockID()
 	logger.Printf("%s: Waiting for lock %d...\n", j.id(), lockID)
 
 	ctx, _ := context.WithTimeout(context.Background(), time.Minute*10)
 	txn, err := pgxpool.BeginEx(ctx, &pgx.TxOptions{IsoLevel: pgx.Serializable})
-	defer txn.Rollback()
 
 	_, err = txn.Exec(`SET LOCAL lock_timeout = '60s';`)
 	if err != nil {
-		return err
+		return err, txn
 	}
 
 	// TODO: ideally we want a machine-level lock instead.
 	_, err = txn.Exec(`SELECT pg_advisory_xact_lock($1);`, lockID)
+	return err, txn
+}
+
+func (j *githubJob) build() error {
+	err, txn := j.aquireDBLock()
 	if err != nil {
 		return err
 	}
+	defer txn.Rollback()
 
 	if len(j.resultNixPaths()) > 0 {
 		logger.Printf("%s: skipping build, results exist already.\n", j.id())
@@ -169,6 +171,12 @@ func (j *githubJob) build() error {
 	// immutable anyway.
 	txn.Rollback()
 
+	if drvs, err := j.nixInstantiate(); err != nil {
+		return err
+	} else {
+		logger.Println("drvs:", drvs)
+	}
+
 	return j.nixBuild()
 }
 
@@ -190,7 +198,7 @@ func (j *githubJob) gitFetch() error {
 
 	githubAuth := githubAuthKey(config.GithubUrl, config.GithubToken) + "=" + config.GithubUrl
 
-	_, _, err := runCmd(exec.Command(
+	_, err := runCmd(exec.Command(
 		"git", "-c", githubAuth, "-C", j.sourceDir(), "fetch"))
 
 	return err
@@ -201,7 +209,7 @@ func (j *githubJob) gitClone() error {
 
 	githubAuth := githubAuthKey(config.GithubUrl, config.GithubToken) + "=" + config.GithubUrl
 
-	_, _, err := runCmd(exec.Command(
+	_, err := runCmd(exec.Command(
 		"git", "clone", "-c", githubAuth, j.cloneURL(), j.sourceDir()))
 
 	if err != nil {
@@ -210,7 +218,7 @@ func (j *githubJob) gitClone() error {
 
 	j.status("pending", "Checkout...")
 
-	_, _, err = runCmd(exec.Command(
+	_, err = runCmd(exec.Command(
 		"git", "-c", "advice.detachedHead=false", "-C", j.sourceDir(), "checkout", j.sha()))
 
 	logger.Println("git checkout result:", err)
@@ -218,7 +226,7 @@ func (j *githubJob) gitClone() error {
 	return err
 }
 
-func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, *bytes.Buffer, error) {
+func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, error) {
 	return runCmd(exec.Command(
 		"nix",
 		append([]string{
@@ -233,24 +241,24 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, *bytes.Bu
 	))
 }
 
-func (j *githubJob) nixLog() (string, string, error) {
-	sout, serr, err := j.nix("log", "-f", j.ciNixPath(), "")
+func (j *githubJob) nixLog() (string, error) {
+	out, err := j.nix("log", "-f", j.ciNixPath(), "")
 	if err == nil {
-		return sout.String(), serr.String(), err
+		return out.String(), err
 	}
 
 	stderrPath := filepath.Join(j.buildDir(), "stderr")
 	stderrBytes, err := ioutil.ReadFile(stderrPath)
 	if err != nil {
-		return "", "", errors.New("No trace of logs found")
+		return "", errors.New("No trace of logs found")
 	}
 
 	drvs := parseDrvsFromStderr(stderrBytes)
 	for _, drv := range drvs {
-		sout, serr, err = runCmd(exec.Command("nix", "log", drv))
+		out, err = runCmd(exec.Command("nix", "log", drv))
 	}
 
-	return sout.String(), serr.String(), err
+	return out.String(), err
 }
 
 var matchFailine = regexp.MustCompile(`error: build of .+ failed`)
@@ -261,14 +269,40 @@ func parseDrvsFromStderr(input []byte) []string {
 	return matchFailDrvs.FindAllString(line, -1)
 }
 
+func (j *githubJob) nixInstantiate() ([]string, error) {
+	drvs := []string{}
+
+	out, err := runCmd(exec.Command("nix-instantiate",
+		"-I", "./nix",
+		"-I", j.sourceDir(),
+		"--argstr", "pname", j.pname(),
+		j.ciNixPath(),
+	))
+	if err != nil {
+		return drvs, err
+	}
+
+	scanner := bufio.NewScanner(out)
+	scanner.Split(bufio.ScanLines)
+
+	for scanner.Scan() {
+		words := strings.Split(scanner.Text(), " ")
+		if len(words) == 4 && strings.HasPrefix(words[3], "/nix/store") {
+			drvs = append(drvs, words[3])
+		}
+	}
+
+	return drvs, nil
+}
+
 func (j *githubJob) nixBuild() error {
 	updateBuildStatus(j, "build")
 	j.status("pending", "Nix Build...")
 
-	stdout, stderr, err := j.nix(
+	output, err := j.nix(
 		"build", "--out-link", j.resultLink(), "-f", j.ciNixPath())
 
-	j.writeOutput(stdout, stderr)
+	j.writeOutput(output)
 
 	if err != nil {
 		j.status("failure", err.Error())
@@ -281,14 +315,10 @@ func (j *githubJob) nixBuild() error {
 	return nil
 }
 
-func (j *githubJob) writeOutput(stdoutBuf, stderrBuf *bytes.Buffer) {
-	stdout := stdoutBuf.Bytes()
-	j.writeOutputToFile("stdout", stdout)
-	j.writeOutputToDB("stdout", stdout)
-
-	stderr := stderrBuf.Bytes()
-	j.writeOutputToFile("stderr", stderr)
-	j.writeOutputToDB("stderr", stderr)
+func (j *githubJob) writeOutput(output *bytes.Buffer) {
+	content := output.Bytes()
+	j.writeOutputToFile("nix_log", content)
+	j.writeOutputToDB("nix_log", content)
 }
 
 func (j *githubJob) writeOutputToFile(baseName string, output []byte) {

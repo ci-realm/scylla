@@ -68,6 +68,18 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/gammazero/deque"
+  packages = ["."]
+  revision = "f6adf94963e448a692b33e9ddc931ff10afbb79b"
+
+[[projects]]
+  branch = "master"
+  name = "github.com/gammazero/workerpool"
+  packages = ["."]
+  revision = "48371c973101f1425ff30aef37cbaf0c65822b22"
+
+[[projects]]
+  branch = "master"
   name = "github.com/go-macaron/binding"
   packages = ["."]
   revision = "ac54ee249c27dca7e76fad851a4a04b73bd1b183"
@@ -137,6 +149,12 @@
   version = "v0.8.0"
 
 [[projects]]
+  branch = "master"
+  name = "github.com/rgzr/sshtun"
+  packages = ["."]
+  revision = "a32b71083b00b8bd5b79273c3f0bc61a77bea722"
+
+[[projects]]
   name = "github.com/smartystreets/assertions"
   packages = [
     ".",
@@ -165,7 +183,16 @@
 [[projects]]
   branch = "master"
   name = "golang.org/x/crypto"
-  packages = ["pbkdf2"]
+  packages = [
+    "curve25519",
+    "ed25519",
+    "ed25519/internal/edwards25519",
+    "internal/chacha20",
+    "internal/subtle",
+    "pbkdf2",
+    "poly1305",
+    "ssh"
+  ]
   revision = "a2144134853fc9a27a7b1e3eb4f19f1a76df13c9"
 
 [[projects]]
@@ -195,6 +222,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "40334a8b3e68d0474a638d55573141e4f8bb4900db25444849711e9cd75b547b"
+  inputs-digest = "08eb816c7722cf416bbda963b5f72e54beb1b8cf3da3e0fe19e37963a7e5f37b"
   solver-name = "gps-cdcl"
   solver-version = 1

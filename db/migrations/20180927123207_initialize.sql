@@ -1,10 +1,33 @@
 -- migrate:up
 
+CREATE TABLE queue(
+	id          BIGSERIAL   NOT NULL UNIQUE PRIMARY KEY,
+	name        TEXT        NOT NULL DEFAULT 'default',
+	created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+	run_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+	args        JSONB       NOT NULL DEFAULT '{}'::json,
+	errors      TEXT[]      DEFAULT '{}'
+);
+
+CREATE UNIQUE INDEX queue_name ON queue (id, name);
+CREATE OR REPLACE FUNCTION notify_queue_inserted() RETURNS trigger AS
+$$
+  DECLARE
+  BEGIN
+    PERFORM pg_notify(CAST('scylla_queue' AS TEXT), CAST(NEW.name AS text) || ' ' || CAST(NEW.id AS text));
+    RETURN NEW;
+  END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER queue_insert_notify
+  AFTER INSERT ON queue
+  FOR EACH ROW EXECUTE PROCEDURE notify_queue_inserted();
+
 CREATE TABLE projects (
-  id              SERIAL                   NOT NULL UNIQUE PRIMARY KEY,
-  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
-  updated_at      TIMESTAMP WITH TIME ZONE,
-  name            TEXT                     NOT NULL UNIQUE
+  id         SERIAL      NOT NULL UNIQUE PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ,
+  name       TEXT        NOT NULL UNIQUE
 );
 
 CREATE TYPE build_status as enum (
@@ -17,12 +40,14 @@ CREATE TYPE build_status as enum (
 );
 
 CREATE TABLE builds (
-  id              SERIAL                   NOT NULL UNIQUE PRIMARY KEY,
-  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
-  updated_at      TIMESTAMP WITH TIME ZONE,
-  project_id      INT                      NOT NULL REFERENCES projects(id),
-  status          build_status             NOT NULL DEFAULT 'queue',
-  data            JSONB                    NOT NULL
+  id          SERIAL       NOT NULL UNIQUE PRIMARY KEY,
+  created_at  TIMESTAMPTZ  NOT NULL DEFAULT clock_timestamp(),
+  updated_at  TIMESTAMPTZ,
+  status_at   TIMESTAMPTZ  NOT NULL DEFAULT clock_timestamp(),
+  finished_at TIMESTAMPTZ,
+  project_id  INT          NOT NULL REFERENCES projects(id),
+  status      build_status NOT NULL DEFAULT 'queue',
+  data        JSONB        NOT NULL
 );
 
 CREATE TYPE log_kind AS ENUM (
@@ -33,32 +58,20 @@ CREATE TYPE log_kind AS ENUM (
 );
 
 CREATE TABLE logs (
-  id              SERIAL                   NOT NULL UNIQUE PRIMARY KEY,
-  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
-  updated_at      TIMESTAMP WITH TIME ZONE,
-  build_id        INT                      NOT NULL REFERENCES builds(id),
-  kind            log_kind                 NOT NULL DEFAULT 'stdout',
-  content         TEXT
+  id         SERIAL      NOT NULL UNIQUE PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ,
+  build_id   INT         NOT NULL REFERENCES builds(id),
+  kind       log_kind    NOT NULL DEFAULT 'stdout',
+  content    TEXT
 );
 
 CREATE TABLE results (
-  id              SERIAL                   NOT NULL UNIQUE PRIMARY KEY,
-  created_at      TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT clock_timestamp(),
-  updated_at      TIMESTAMP WITH TIME ZONE,
-  build_id        INT                      NOT NULL REFERENCES builds(id),
-  path            TEXT                     NOT NULL
-);
-
-CREATE TABLE que_jobs (
-  priority    smallint    NOT NULL DEFAULT 100,
-  run_at      timestamptz NOT NULL DEFAULT now(),
-  job_id      bigserial   NOT NULL,
-  job_class   text        NOT NULL,
-  args        json        NOT NULL DEFAULT '[]'::json,
-  error_count integer     NOT NULL DEFAULT 0,
-  last_error  text,
-  queue       text        NOT NULL DEFAULT '',
-  CONSTRAINT que_jobs_pkey PRIMARY KEY (queue, priority, run_at, job_id)
+  id         SERIAL      NOT NULL UNIQUE PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at TIMESTAMPTZ,
+  build_id   INT         NOT NULL REFERENCES builds(id),
+  path       TEXT        NOT NULL
 );
 
 CREATE FUNCTION auto_row_updated_at() RETURNS TRIGGER AS
@@ -67,21 +80,33 @@ $$
     NEW.updated_at = clock_timestamp();
     RETURN NEW;
   END;
-$$
-language 'plpgsql';
+$$ LANGUAGE 'plpgsql';
 
 CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON projects FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
 CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON builds FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
 CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON logs FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
 CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON results FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
 
+CREATE FUNCTION mark_build_finished() RETURNS TRIGGER AS
+$$
+  BEGIN
+    IF NEW.status = 'failure' OR NEW.status = 'success' THEN
+      NEW.finished_at = clock_timestamp();
+    END IF;
+    RETURN NEW;
+  END;
+$$ LANGUAGE 'plpgsql';
+
+CREATE TRIGGER after_build BEFORE UPDATE ON builds FOR EACH ROW EXECUTE PROCEDURE mark_build_finished();
+
 -- migrate:down
 
 DROP FUNCTION IF EXISTS auto_row_updated_at CASCADE;
+DROP FUNCTION IF EXISTS notify_queue_inserted CASCADE;
 DROP TABLE IF EXISTS builds CASCADE;
 DROP TABLE IF EXISTS projects CASCADE;
 DROP TABLE IF EXISTS logs CASCADE;
 DROP TABLE IF EXISTS results CASCADE;
-DROP TABLE IF EXISTS que_jobs CASCADE;
+DROP TABLE IF EXISTS queue CASCADE;
 DROP TYPE IF EXISTS build_status;
 DROP TYPE IF EXISTS log_kind;

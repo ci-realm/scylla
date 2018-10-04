@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"html/template"
@@ -12,13 +13,14 @@ import (
 	"path/filepath"
 	"runtime"
 	"strings"
+	"sync"
 	"time"
 
 	macaron "gopkg.in/macaron.v1"
 
 	arg "github.com/alexflint/go-arg"
-	que "github.com/bgentry/que-go"
 	"github.com/jackc/pgx"
+	"github.com/manveru/scylla/queue"
 )
 
 func init() {
@@ -43,6 +45,43 @@ var config struct {
 	PrivateSSHKey     string `arg:"--private-ssh-key,required,env:PRIVATE_SSH_KEY"`
 	PrivateSSHKeyPath string `arg:"--private-ssh-key-path,env:PRIVATE_SSH_KEY_PATH"`
 	DatabaseURL       string `arg:"--database-url,required,env:DATABASE_URL"`
+}
+
+func main() {
+	parseConfig()
+	populateKnownHosts()
+	setupDB()
+	go setupQueue()
+
+	defer pgxpool.Close()
+
+	m := macaron.Classic()
+	m.SetAutoHead(true)
+	m.NotFound(func(ctx *macaron.Context) {
+		ctx.HTML(404, "not_found")
+	})
+	m.Use(macaron.Renderer(macaron.RenderOptions{
+		Layout:     "layout",
+		Extensions: []string{".html"},
+		Funcs: []template.FuncMap{{
+			"FormatTime": func(t time.Time) string {
+				return t.Format("2006-01-02 15:04:05")
+			},
+			"ToClass": func(s string) string {
+				return strings.ToLower(s)
+			},
+			"ShortSHA": func(s string) string { return s },
+			"FormatDuration": func(s time.Duration) string {
+				return s.String()
+			},
+			"FormatTimeAgo": func(s time.Time) string {
+				return time.Now().Sub(s).String()
+			},
+		}},
+	}))
+
+	setupRouting(m)
+	m.Run(config.Host, config.Port)
 }
 
 func parseConfig() {
@@ -76,59 +115,52 @@ func parseConfig() {
 	}
 }
 
-func main() {
-	parseConfig()
-	populateKnownHosts()
-	tunnelStarted := make(chan bool)
-	go setupDatabaseTunnel(tunnelStarted)
-	<-tunnelStarted
-	setupQueue()
+func setupDB() {
+	pgxcfg, err := pgx.ParseURI(config.DatabaseURL)
+	if err != nil {
+		logger.Fatalln(err)
+	}
 
-	defer pgxpool.Close()
+	if strings.Contains(config.DatabaseURL, "amazonaws.com") {
+		tunnelStarted := make(chan bool)
+		go setupDatabaseTunnel(tunnelStarted)
+		<-tunnelStarted
+		pgxcfg.Port = localDBPort
+		pgxcfg.Host = "127.0.0.1"
+	}
 
-	m := macaron.Classic()
-	m.SetAutoHead(true)
-	m.Use(macaron.Renderer(macaron.RenderOptions{
-		Layout:     "layout",
-		Extensions: []string{".html"},
-		Funcs: []template.FuncMap{
-			{"FormatTime": func(t time.Time) string {
-				return t.Format(time.RFC1123)
-			}},
-		},
-	}))
-
-	setupRouting(m)
-	m.Run(config.Host, config.Port)
+	pgxpool, err = pgx.NewConnPool(pgx.ConnPoolConfig{
+		ConnConfig:     pgxcfg,
+		AfterConnect:   func(*pgx.Conn) error { return nil },
+		MaxConnections: 50,
+	})
+	if err != nil {
+		logger.Fatalln(err)
+	}
 }
 
 var (
-	queueClient *que.Client
-	pgxpool     *pgx.ConnPool
+	jobQueue *queue.Queue
+	pgxpool  *pgx.ConnPool
 )
 
 func setupQueue() {
 	logger.Println("Setting up worker queue")
 
-	pgxcfg, err := pgx.ParseURI(config.DatabaseURL)
-	if err != nil {
-		logger.Fatalln(err)
+	jobQueue = &queue.Queue{
+		Timeout:    time.Hour,
+		CheckEvery: time.Second * 10,
+		Pool:       pgxpool,
+		Name:       "scylla",
+		Retries:    3,
 	}
-	pgxcfg.Port = localDBPort
-	pgxcfg.Host = "127.0.0.1"
 
-	pgxpool, err = pgx.NewConnPool(pgx.ConnPoolConfig{
-		ConnConfig:   pgxcfg,
-		AfterConnect: que.PrepareStatements,
+	err := jobQueue.Start(runtime.NumCPU(), func(item *queue.Item) error {
+		return runGithubPR(item)
 	})
 	if err != nil {
 		logger.Fatalln(err)
 	}
-
-	queueClient = que.NewClient(pgxpool)
-	workMap := que.WorkMap{"GithubPR": runGithubPR}
-	workers := que.NewWorkerPool(queueClient, workMap, runtime.NumCPU())
-	workers.Start()
 }
 
 // ssh-keyscan <host> >> ~/.ssh/known_hosts
@@ -154,11 +186,11 @@ func populateKnownHosts() {
 		}
 		host := words[len(words)-1]
 		hosts = append(hosts, host)
-		stdout, _, err := runCmd(exec.Command("ssh-keyscan", "-p", "443", host))
+		output, err := runCmd(exec.Command("ssh-keyscan", "-p", "443", host))
 		if err != nil {
 			logger.Fatalln("Couldn't get host key", err)
 		}
-		hostKey := strings.TrimSpace(stdout.String())
+		hostKey := strings.TrimSpace(output.String())
 		logger.Println("Adding to known_hosts:", hostKey)
 		knownHosts = append(knownHosts, hostKey)
 	}
@@ -195,23 +227,69 @@ func writeFile(dest, content string, mode os.FileMode) {
 }
 
 // runCmd returns stdout, stderr, and any errors
-func runCmd(cmd *exec.Cmd) (*bytes.Buffer, *bytes.Buffer, error) {
+func runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 	logger.Printf("%s %v\n", cmd.Path, cmd.Args)
 
-	var stdoutBuf, stderrBuf bytes.Buffer
+	var combinedOutput bytes.Buffer
 
-	cmd.Stdout = io.MultiWriter(&stdoutBuf, os.Stdout)
-	cmd.Stderr = io.MultiWriter(&stderrBuf, os.Stderr)
+	stderrPipe, err := cmd.StderrPipe()
+	if err != nil {
+		logger.Fatalln(err)
+	}
+
+	stdoutPipe, err := cmd.StdoutPipe()
+	if err != nil {
+		logger.Fatalln(err)
+	}
+
+	wg := &sync.WaitGroup{}
+	wg.Add(2)
+
+	onLine := make(chan string, 100)
+	go func(output *bytes.Buffer) {
+		lineLogger := log.New(output, "["+filepath.Base(cmd.Path)+"] ", log.Ldate|log.Ltime|log.LUTC)
+		for line := range onLine {
+			logger.Println(line)
+			lineLogger.Println(line)
+		}
+	}(&combinedOutput)
+	go logPipe(wg, stderrPipe, onLine)
+	go logPipe(wg, stdoutPipe, onLine)
 
 	if err := cmd.Start(); err != nil {
-		io.WriteString(&stderrBuf, err.Error())
-		return nil, nil, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
+		io.WriteString(&combinedOutput, err.Error())
+		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
 	}
+
+	wg.Wait()
+	close(onLine)
 
 	if err := cmd.Wait(); err != nil {
-		io.WriteString(&stderrBuf, err.Error())
-		return &stdoutBuf, &stderrBuf, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
+		io.WriteString(&combinedOutput, err.Error())
+		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
 	}
 
-	return &stdoutBuf, &stderrBuf, nil
+	return &combinedOutput, nil
+}
+
+func logPipe(wg *sync.WaitGroup, input io.ReadCloser, onLine chan string) {
+	scanner := bufio.NewScanner(input)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		onLine <- scanner.Text()
+	}
+	wg.Done()
+}
+
+func withConn(ctx *macaron.Context, f func(*pgx.Conn) error) {
+	conn, err := pgxpool.Acquire()
+	if err != nil {
+		ctx.Error(500, err.Error())
+		return
+	}
+	defer pgxpool.Release(conn)
+	err = f(conn)
+	if err != nil {
+		ctx.Error(500, err.Error())
+	}
 }

@@ -65,9 +65,13 @@ pre.console-output {
 pre.console-output time {font-weight: bold;}
 .builds {
   font-family: monospace;
-  font-size: 1.2em;
+  font-size: 1.0em;
+  min-width: 100vw;
+  text-align: left;
 }
-.builds .time {
-  text-align: right;
-  padding-right: 1.5em;
-}
+.builds .time {}
+.builds .buildID { width: 80%; }
+.builds .success { background-color: rgba(0,255,0,0.3); }
+.builds .queue   { background-color: rgba(255,255,0,0.3); }
+.builds .build   { background-color: rgba(255,255,255,0.3); }
+.builds .failure { background-color: rgba(255,0,0,0.3); }
