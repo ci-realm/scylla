@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"time"
 
@@ -231,10 +232,24 @@ func findAllProjects(db *pgx.Conn, limit int) ([]dbProject, error) {
 }
 
 func updateBuildStatus(job *githubJob, status string) {
-	_, err := pgxpool.Exec(
-		`UPDATE builds SET status = $1, status_at = now()
-     WHERE id = $2;`,
-		status, job.buildID)
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	tx, err := pgxpool.BeginEx(ctx, nil)
+	if err != nil {
+		logger.Println("Failed updating build status:", err)
+	}
+	defer func() { cancel(); _ = tx.Rollback() }()
+
+	_, err = tx.ExecEx(ctx, `SET idle_in_transaction_session_timeout TO '1000';`, nil)
+	if err != nil {
+		logger.Println("Failed updating build status:", err)
+	}
+
+	_, err = tx.ExecEx(ctx, `UPDATE builds SET status = $1, status_at = now() WHERE id = $2;`, nil, status, job.buildID)
+	if err != nil {
+		logger.Println("Failed updating build status:", err)
+	}
+
+	err = tx.CommitEx(ctx)
 	if err != nil {
 		logger.Println("Failed updating build status:", err)
 	}
