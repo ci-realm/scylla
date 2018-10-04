@@ -9,7 +9,6 @@ import (
 	"fmt"
 	"hash/crc64"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -30,11 +29,6 @@ type githubJob struct {
 	Host    string
 	buildID int
 	conn    *pgx.Conn
-}
-
-type githubJobItem struct {
-	BuildID int
-	Host    string
 }
 
 func postHooksGithub(ctx *macaron.Context, hook GithubHook) {
@@ -122,29 +116,28 @@ func (j *githubJob) lockID() int64 {
 	return int64(ui64)
 }
 
-func (j *githubJob) aquireDBLock() (error, *pgx.Tx) {
+func (j *githubJob) build() error {
 	lockID := j.lockID()
 	logger.Printf("%s: Waiting for lock %d...\n", j.id(), lockID)
 
-	ctx, _ := context.WithTimeout(context.Background(), time.Minute*10)
-	txn, err := pgxpool.BeginEx(ctx, &pgx.TxOptions{IsoLevel: pgx.Serializable})
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*10)
+	txn, err := pgxpool.BeginEx(ctx, nil)
+	if err != nil {
+		cancel()
+		return err
+	}
+	defer func() { cancel(); _ = txn.Rollback() }()
 
 	_, err = txn.Exec(`SET LOCAL lock_timeout = '60s';`)
 	if err != nil {
-		return err, txn
+		return err
 	}
 
 	// TODO: ideally we want a machine-level lock instead.
 	_, err = txn.Exec(`SELECT pg_advisory_xact_lock($1);`, lockID)
-	return err, txn
-}
-
-func (j *githubJob) build() error {
-	err, txn := j.aquireDBLock()
 	if err != nil {
 		return err
 	}
-	defer txn.Rollback()
 
 	if len(j.resultNixPaths()) > 0 {
 		logger.Printf("%s: skipping build, results exist already.\n", j.id())
@@ -169,7 +162,7 @@ func (j *githubJob) build() error {
 
 	// once we get here, others can use this hash as well, as the source should be
 	// immutable anyway.
-	txn.Rollback()
+	_ = txn.Rollback()
 
 	if drvs, err := j.nixInstantiate(); err != nil {
 		return err
@@ -178,19 +171,6 @@ func (j *githubJob) build() error {
 	}
 
 	return j.nixBuild()
-}
-
-func (j *githubJob) onQueue() error {
-	updateBuildStatus(j, "queue")
-	j.status("pending", "Queued")
-	logger.Printf("Queued build of %s\n", j.id())
-
-	return nil
-}
-
-func (j *githubJob) onTimeout(timeout time.Duration) {
-	j.status("error", "Timeout after "+timeout.String()+" minutes")
-	logger.Printf("Build of %s timed out\n", j.id())
 }
 
 func (j *githubJob) gitFetch() error {
@@ -239,34 +219,6 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, error) {
 			"--argstr", "pname", j.pname(),
 		}, args...)...,
 	))
-}
-
-func (j *githubJob) nixLog() (string, error) {
-	out, err := j.nix("log", "-f", j.ciNixPath(), "")
-	if err == nil {
-		return out.String(), err
-	}
-
-	stderrPath := filepath.Join(j.buildDir(), "stderr")
-	stderrBytes, err := ioutil.ReadFile(stderrPath)
-	if err != nil {
-		return "", errors.New("No trace of logs found")
-	}
-
-	drvs := parseDrvsFromStderr(stderrBytes)
-	for _, drv := range drvs {
-		out, err = runCmd(exec.Command("nix", "log", drv))
-	}
-
-	return out.String(), err
-}
-
-var matchFailine = regexp.MustCompile(`error: build of .+ failed`)
-var matchFailDrvs = regexp.MustCompile(`[^'\s]+\.drv`)
-
-func parseDrvsFromStderr(input []byte) []string {
-	line := matchFailine.FindString(string(input))
-	return matchFailDrvs.FindAllString(line, -1)
 }
 
 func (j *githubJob) nixInstantiate() ([]string, error) {
@@ -332,12 +284,15 @@ func (j *githubJob) writeOutputToFile(baseName string, output []byte) {
 
 func (j *githubJob) writeOutputToDB(basename string, output []byte) {
 	logger.Println(string(output))
-	insertLog(j.buildID, basename, string(output))
+	err := insertLog(j.buildID, basename, string(output))
+	if err != nil {
+		logger.Println("Failed writing log to DB:", err)
+	}
 }
 
 func (j *githubJob) status(state, description string) {
 	logger.Println(j.id()+":", state, description)
-	setGithubStatus(
+	go setGithubStatus(
 		j.targetURL(),
 		j.Hook.PullRequest.StatusesURL,
 		state,
@@ -392,16 +347,15 @@ func (j *githubJob) copyResultsToCache() {
 		}
 	}
 
-	runCmd(exec.Command(
+	_, err := runCmd(exec.Command(
 		"ssh", "root@3.120.166.103",
 		"nix", "copy",
 		"--all",
 		"--to", "s3://scylla-cache?region=eu-central-1",
 	))
-}
-
-func (j *githubJob) id() string {
-	return j.cloneURL() + "/" + j.sha()
+	if err != nil {
+		j.onError(err, "failed copying results to binary cache")
+	}
 }
 
 func (j *githubJob) findOrCreateProjectID() (int, error) {
@@ -424,41 +378,16 @@ func (j *githubJob) targetURL() string {
 	return uri.String()
 }
 
-func (j *githubJob) fullName() string {
-	return j.Hook.Repository.FullName
-}
-
-func (j *githubJob) cloneURL() string {
-	return j.Hook.PullRequest.Head.Repo.CloneURL
-}
-
-func (j *githubJob) sha() string {
-	return j.Hook.PullRequest.Head.Sha
-}
-
-func (j *githubJob) pname() string {
-	return j.saneFullName() + "-" + j.sha()
-}
-
-func (j *githubJob) rootDir() string {
-	return config.BuildDir
-}
-
-func (j *githubJob) buildDir() string {
-	return cleanJoin(j.rootDir(), j.saneFullName(), j.sha())
-}
-
-func (j *githubJob) sourceDir() string {
-	return filepath.Join(j.buildDir(), "source")
-}
-
-func (j *githubJob) resultLink() string {
-	return filepath.Join(j.buildDir(), "result")
-}
-
-func (j *githubJob) ciNixPath() string {
-	return filepath.Join(j.buildDir(), "source", "ci.nix")
-}
+func (j *githubJob) id() string         { return j.cloneURL() + "/" + j.sha() }
+func (j *githubJob) fullName() string   { return j.Hook.Repository.FullName }
+func (j *githubJob) cloneURL() string   { return j.Hook.PullRequest.Head.Repo.CloneURL }
+func (j *githubJob) sha() string        { return j.Hook.PullRequest.Head.Sha }
+func (j *githubJob) pname() string      { return j.saneFullName() + "-" + j.sha() }
+func (j *githubJob) rootDir() string    { return config.BuildDir }
+func (j *githubJob) buildDir() string   { return cleanJoin(j.rootDir(), j.saneFullName(), j.sha()) }
+func (j *githubJob) sourceDir() string  { return filepath.Join(j.buildDir(), "source") }
+func (j *githubJob) resultLink() string { return filepath.Join(j.buildDir(), "result") }
+func (j *githubJob) ciNixPath() string  { return filepath.Join(j.buildDir(), "source", "ci.nix") }
 
 func setGithubStatus(targetURL, statusURL, state, description string) {
 	if len(description) > 138 {
@@ -473,11 +402,14 @@ func setGithubStatus(targetURL, statusURL, state, description string) {
 	}
 	body := &bytes.Buffer{}
 
-	json.NewEncoder(body).Encode(&status)
+	err := json.NewEncoder(body).Encode(&status)
+	if err != nil {
+		logger.Fatalf("Failed marshaling Github status: %s\n", err)
+	}
 
 	req, err := http.NewRequest("POST", statusURL, body)
 	if err != nil {
-		log.Fatalf("Failed creating request: %s", err)
+		logger.Fatalf("Failed creating request: %s\n", err)
 	}
 
 	req.SetBasicAuth(config.GithubUser, config.GithubToken)
@@ -498,21 +430,6 @@ func progressHost(ctx *macaron.Context) string {
 		proto = "http"
 	}
 	return fmt.Sprintf("%s://%s", proto, ctx.Req.Host)
-}
-
-func newGithubJobFromJSONFile(path string) *githubJob {
-	file, err := os.Open(path)
-	if err != nil {
-		logger.Printf("Couldn't open file %s: %s\n", path, err)
-		return nil
-	}
-
-	job := &githubJob{Hook: &GithubHook{}}
-	if err = json.NewDecoder(file).Decode(job.Hook); err != nil {
-		logger.Printf("Failed to decode JSON %s: %s\n", path, err)
-		return nil
-	}
-	return job
 }
 
 func githubAuthKey(givenURL, token string) string {

@@ -30,7 +30,7 @@ type dbBuild struct {
 	Log         *pgtype.Text
 }
 
-func (b dbBuild) BranchName() string       { return b.Hook.PullRequest.Base.Ref }
+func (b dbBuild) BranchName() string       { return b.Hook.PullRequest.Head.Ref }
 func (b dbBuild) Owner() string            { return b.Hook.Repository.Owner.Login }
 func (b dbBuild) ProjectLink() string      { return "/builds/" + b.ProjectName }
 func (b dbBuild) Repo() string             { return b.Hook.Repository.Name }
@@ -38,6 +38,9 @@ func (b dbBuild) Title() string            { return b.Hook.PullRequest.Title }
 func (b dbBuild) GithubLink() string       { return b.Hook.PullRequest.HTMLURL }
 func (b dbBuild) SHA() string              { return b.Hook.PullRequest.Head.Sha }
 func (b dbBuild) BuildTime() time.Duration { return b.FinishedAt.Time.Sub(b.CreatedAt.Time) }
+func (b dbBuild) CommitLink() string {
+	return b.Hook.PullRequest.Base.Repo.HTMLURL + "/commit/" + b.Hook.PullRequest.Head.Sha
+}
 
 func insertBuild(db *pgx.Conn, projectID int, job *githubJob) (int, error) {
 	buf := &bytes.Buffer{}
@@ -102,7 +105,7 @@ func findBuilds(db *pgx.Conn) ([]dbBuild, error) {
 
 		var buildData []byte
 
-		rows.Scan(
+		err = rows.Scan(
 			&build.ID,
 			&build.Status,
 			build.CreatedAt,
@@ -112,6 +115,10 @@ func findBuilds(db *pgx.Conn) ([]dbBuild, error) {
 			&build.ProjectName,
 			&buildData,
 		)
+		if err != nil {
+			return builds, err
+		}
+
 		err = json.NewDecoder(bytes.NewBuffer(buildData)).Decode(&build.Hook)
 		builds = append(builds, build)
 		if err != nil {
@@ -165,19 +172,6 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbB
 
 func (d dbProject) Link() string {
 	return "/builds/" + d.Name
-}
-
-func findProjectByID(db *pgx.Conn, projectID int) (dbProject, error) {
-	project := dbProject{}
-	err := db.QueryRow(
-		`SELECT projects.id, projects.name, projects.created_at, projects.updated_at, count(distinct(builds.id))
-     FROM projects
-     JOIN builds on builds.project_id = projects.id
-     WHERE id = $1
-     GROUP BY projects.id;`,
-		projectID,
-	).Scan(&project.ID, &project.Name, &project.BuildCount)
-	return project, err
 }
 
 func findBuildsByProjectName(db *pgx.Conn, projectName string) ([]dbBuild, error) {

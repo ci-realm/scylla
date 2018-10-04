@@ -140,9 +140,6 @@ func (q *Queue) Start(numberOfWorkers int, fun func(*Item) error) error {
 			}
 		})
 	}
-
-	wp.StopWait()
-	return nil
 }
 
 func (q Queue) Insert(i *Item) error {

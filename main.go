@@ -70,12 +70,14 @@ func main() {
 			"ToClass": func(s string) string {
 				return strings.ToLower(s)
 			},
-			"ShortSHA": func(s string) string { return s },
+			"ShortSHA": func(s string) string {
+				return s[0:7]
+			},
 			"FormatDuration": func(s time.Duration) string {
 				return s.String()
 			},
 			"FormatTimeAgo": func(s time.Time) string {
-				return time.Now().Sub(s).String()
+				return time.Since(s).String()
 			},
 		}},
 	}))
@@ -132,7 +134,7 @@ func setupDB() {
 	pgxpool, err = pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:     pgxcfg,
 		AfterConnect:   func(*pgx.Conn) error { return nil },
-		MaxConnections: 50,
+		MaxConnections: 20,
 	})
 	if err != nil {
 		logger.Fatalln(err)
@@ -257,7 +259,7 @@ func runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 	go logPipe(wg, stdoutPipe, onLine)
 
 	if err := cmd.Start(); err != nil {
-		io.WriteString(&combinedOutput, err.Error())
+		_, _ = io.WriteString(&combinedOutput, err.Error())
 		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
 	}
 
@@ -265,7 +267,7 @@ func runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 	close(onLine)
 
 	if err := cmd.Wait(); err != nil {
-		io.WriteString(&combinedOutput, err.Error())
+		_, _ = io.WriteString(&combinedOutput, err.Error())
 		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
 	}
 

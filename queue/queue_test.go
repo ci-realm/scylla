@@ -142,7 +142,7 @@ func BenchmarkInsert(b *testing.B) {
 
 	queue := makeTestQueue(&testing.T{})
 	for n := 0; n < b.N; n++ {
-		queue.Insert(firstJob)
+		_ = queue.Insert(firstJob)
 	}
 }
 
@@ -150,7 +150,7 @@ func BenchmarkReserve(b *testing.B) {
 	queue := makeTestQueue(&testing.T{})
 
 	for n := 0; n < b.N; n++ {
-		queue.Reserve(func(i *Item) error { return nil })
+		_ = queue.Reserve(func(i *Item) error { return nil })
 	}
 }
 
@@ -165,6 +165,8 @@ func TestStart(t *testing.T) {
 
 	counter := int64(0)
 
+	failures := make(chan error, workCount)
+
 	go func() {
 		err := queue.Start(workCount/2, func(i *Item) error {
 			args := i.Args.([]interface{})
@@ -173,12 +175,13 @@ func TestStart(t *testing.T) {
 			return nil
 		})
 		if err != nil {
-			t.Fatal(err)
+			failures <- err
 		}
 	}()
 
 	go func() {
 		wg.Wait()
+		close(failures)
 		done <- true
 	}()
 
@@ -186,7 +189,7 @@ func TestStart(t *testing.T) {
 
 	for i := 1; i <= workCount; i++ {
 		n := i
-		queue.Insert(&Item{Args: []int{n}})
+		_ = queue.Insert(&Item{Args: []int{n}})
 	}
 
 	select {
@@ -195,7 +198,11 @@ func TestStart(t *testing.T) {
 		if int64(counter) != int64(expected) {
 			t.Fatalf("Counter should be %d but is %d", expected, counter)
 		}
-	case <-time.After(10 * time.Second):
+	case <-time.After(20 * time.Second):
 		t.Fatal("waiting for worker timed out")
+	}
+
+	for failure := range failures {
+		t.Fatal(failure)
 	}
 }

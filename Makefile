@@ -7,7 +7,7 @@ run:
 # REVISION=$$(git rev-parse --verify HEAD) kubernetes-deploy --template-dir olympus/misc.production e-recruiting-api-team kubernetes.misc.production.$$dc; \
 
 deploy: olympus/misc.production/deployment.json
-	docker load -i "$$(nix-build ./ci.nix -A docker)" && \
+	docker load -i "$$(nix-build ./ci.nix -A ignored.docker)" && \
   docker push "quay.dc.xing.com/e-recruiting-api-team/scylla:$$(git rev-parse --verify HEAD)" && \
 	for dc in ams1 ams2; do \
 	  kubectl --namespace e-recruiting-api-team \

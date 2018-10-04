@@ -8,12 +8,10 @@ import (
 func setupRouting(m *macaron.Macaron) {
 	m.Get("/_system/alive", getAlive)
 	m.Get("/", getIndex)
-	m.Get("/builds", getBuilds)
+	m.Get("/builds", getDashboardBuilds)
 	m.Get("/builds/:user/:repo", getBuildsProject)
 	m.Get("/builds/:user/:repo/:id", getBuildsProjectId)
 	m.Get("/projects", getProjects)
-
-	m.Get("/dashboard/builds", getDashboardBuilds)
 
 	m.Post("/hooks/github", binding.Bind(GithubHook{}), postHooksGithub)
 }
