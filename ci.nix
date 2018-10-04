@@ -4,13 +4,10 @@
     maintainer = "Michael Fellinger <mf@seitenschmied.at>";
     docker-containers = [ "docker" ];
   };
-  scylla = pkgs.callPackage ./. {};
-  docker = pkgs.callPackage ./nix/docker.nix {};
-  deep = pkgs.recurseIntoAttrs {
+  hello = pkgs.hello;
+  ignored = {
     scylla = pkgs.callPackage ./. {};
-    thisIsNotEvaluated = {
-      scylla = pkgs.callPackage ./. {};
-    };
+    docker = pkgs.callPackage ./nix/docker.nix {};
   };
-  dbmate = pkgs.callPackage ./nix/pkgs/dbmate {};
+  # deep = pkgs.recurseIntoAttrs { };
 }
