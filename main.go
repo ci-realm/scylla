@@ -79,6 +79,15 @@ func main() {
 			"FormatTimeAgo": func(s time.Time) string {
 				return time.Since(s).String()
 			},
+			"ScyllaVersionLink": func() string {
+				return "https://source.xing.com/e-recruiting-api-team/scylla"
+			},
+			"ScyllaHostname": func() string {
+				if host := os.Getenv("HOSTNAME"); host != "" {
+					return host
+				}
+				return "localhost"
+			},
 		}},
 	}))
 
@@ -188,11 +197,12 @@ func populateKnownHosts() {
 		}
 		host := words[len(words)-1]
 		hosts = append(hosts, host)
-		output, err := runCmd(exec.Command("ssh-keyscan", "-p", "443", host))
+		cmd := exec.Command("ssh-keyscan", "-p", "443", host)
+		output, err := cmd.Output()
 		if err != nil {
 			logger.Fatalln("Couldn't get host key", err)
 		}
-		hostKey := strings.TrimSpace(output.String())
+		hostKey := strings.TrimSpace(string(output))
 		logger.Println("Adding to known_hosts:", hostKey)
 		knownHosts = append(knownHosts, hostKey)
 	}
