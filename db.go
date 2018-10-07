@@ -50,6 +50,9 @@ func (b dbBuild) BranchLink() string {
 func (b dbBuild) BuildLink() string {
 	return fmt.Sprintf("/builds/%s/%s/%d", b.Owner(), b.Repo(), b.ID)
 }
+func (b dbBuild) RestartLink() string {
+	return fmt.Sprintf("/builds/%s/%s/%d/restart", b.Owner(), b.Repo(), b.ID)
+}
 
 func insertBuild(db *pgx.Conn, projectID int, job *githubJob) (int, error) {
 	buf := &bytes.Buffer{}

@@ -5,6 +5,12 @@
   <a href="">{{.Build.Hook.PullRequest.Head.Sha}}</a>
 </h2>
 
+<form action="{{.Build.RestartLink}}" method="POST">
+  <button type="submit">
+    <a href="{{.Build.RestartLink}}"><img src="/img/noun_reload.svg" alt="restart build" /></a>
+  </button>
+</form>
+
 <pre>{{.Build.Hook}}</pre>
 
 Status: {{.Build.Status}}<br/>

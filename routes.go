@@ -14,6 +14,7 @@ func setupRouting(m *macaron.Macaron) {
 	m.Get("/builds", getDashboardBuilds)
 	m.Get("/builds/:user/:repo", getBuildsProject)
 	m.Get("/builds/:user/:repo/:id", getBuildsProjectId)
+	m.Post("/builds/:user/:repo/:id/restart", postBuildsProjectIdRestart)
 	m.Get("/projects", getProjects)
 
 	m.Post("/hooks/github", binding.Bind(GithubHook{}), postHooksGithub)
