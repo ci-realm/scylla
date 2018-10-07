@@ -316,6 +316,20 @@ func (j *githubJob) onSuccess() {
 	// TODO: also remove outputs to allow GC
 	_ = os.RemoveAll(j.sourceDir())
 	j.copyResultsToCache()
+
+	for _, nixStorePath := range j.resultNixPaths() {
+		// we'll just assume those are docker containers for now
+		// we should get a list of docker containers from the ci.nix later.
+		if strings.HasSuffix(nixStorePath, ".tar.gz") {
+			logger.Println("Starting Jenkins job for", nixStorePath)
+			err := startJenkinsJob("e-recruiting-api-team-nix-deployer", url.Values{
+				"DOCKER_IMAGE_PATH": {nixStorePath},
+			})
+			if err != nil {
+				logger.Println("Jenkins result:", err)
+			}
+		}
+	}
 }
 
 func (j *githubJob) resultNixPaths() []string {

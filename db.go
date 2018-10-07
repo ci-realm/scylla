@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	"github.com/jackc/pgx"
@@ -41,6 +42,13 @@ func (b dbBuild) SHA() string              { return b.Hook.PullRequest.Head.Sha 
 func (b dbBuild) BuildTime() time.Duration { return b.FinishedAt.Time.Sub(b.CreatedAt.Time) }
 func (b dbBuild) CommitLink() string {
 	return b.Hook.PullRequest.Base.Repo.HTMLURL + "/commit/" + b.Hook.PullRequest.Head.Sha
+}
+
+func (b dbBuild) BranchLink() string {
+	return b.Hook.PullRequest.Base.Repo.HTMLURL + "/tree/" + b.Hook.PullRequest.Head.Ref
+}
+func (b dbBuild) BuildLink() string {
+	return fmt.Sprintf("/builds/%s/%s/%d", b.Owner(), b.Repo(), b.ID)
 }
 
 func insertBuild(db *pgx.Conn, projectID int, job *githubJob) (int, error) {
@@ -89,6 +97,7 @@ func findBuilds(db *pgx.Conn) ([]dbBuild, error) {
         builds.data
       FROM builds
       JOIN projects ON projects.id = builds.project_id
+      ORDER BY created_at DESC
       LIMIT 100;`,
 	)
 
@@ -147,8 +156,6 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbB
         builds.updated_at,
         builds.data,
         logs.content
-				data#>>'{pull_request,head,repo,owner,login}' AS owner,
-				data#>>'{pull_request,head,repo,name}' AS repo
 			FROM builds
       JOIN projects ON projects.id = builds.project_id
       LEFT OUTER JOIN logs ON logs.build_id = builds.id
@@ -160,7 +167,7 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (dbB
 		build.CreatedAt,
 		build.UpdatedAt,
 		&buildData,
-		&build.Log,
+		build.Log,
 	)
 
 	if err != nil {

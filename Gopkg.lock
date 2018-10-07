@@ -2,39 +2,22 @@
 
 
 [[projects]]
-  name = "github.com/BurntSushi/toml"
-  packages = ["."]
-  revision = "b26d9c308763d68093482582cea63d69be07a0f0"
-  version = "v0.3.0"
-
-[[projects]]
   name = "github.com/Jeffail/tunny"
   packages = ["."]
   revision = "59cfa8fcb19f5acba8db07a0dd3cb2fa7edbc228"
   version = "0.1.1"
 
 [[projects]]
-  branch = "master"
-  name = "github.com/Unknwon/bra"
-  packages = [
-    ".",
-    "cmd",
-    "modules/bindata",
-    "modules/setting"
-  ]
-  revision = "c14c7f7994e36691f39c2443aa6f7be6d111456f"
+  name = "github.com/Sirupsen/logrus"
+  packages = ["."]
+  revision = "a67f783a3814b8729bd2dac5780b5f78f8dbd64d"
+  version = "v1.1.0"
 
 [[projects]]
   branch = "master"
   name = "github.com/Unknwon/com"
   packages = ["."]
   revision = "da59b551951d50441ca26b7a8cd81317f34df87f"
-
-[[projects]]
-  branch = "master"
-  name = "github.com/Unknwon/log"
-  packages = ["."]
-  revision = "e617c87089d3ff2ae05098eac8c9386069cd8461"
 
 [[projects]]
   branch = "master"
@@ -59,6 +42,32 @@
   packages = ["."]
   revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
   version = "v1.20.0"
+
+[[projects]]
+  name = "github.com/codegangsta/inject"
+  packages = ["."]
+  revision = "37d7f8432a3e684eef9b2edece76bdfa6ac85b39"
+  version = "v1.0-rc1"
+
+[[projects]]
+  name = "github.com/docker/distribution"
+  packages = [
+    ".",
+    "context",
+    "digest",
+    "reference",
+    "registry/api/errcode",
+    "registry/api/v2",
+    "registry/client",
+    "registry/client/auth",
+    "registry/client/auth/challenge",
+    "registry/client/transport",
+    "registry/storage/cache",
+    "registry/storage/cache/memory",
+    "uuid"
+  ]
+  revision = "48294d928ced5dd9b378f7fd7c6f5da3ff3f2c89"
+  version = "v2.6.2"
 
 [[projects]]
   name = "github.com/elazarl/go-bindata-assetfs"
@@ -91,10 +100,40 @@
   revision = "d8a0b8677191f4380287cfebd08e462217bac7ad"
 
 [[projects]]
+  name = "github.com/go-macaron/sockets"
+  packages = ["."]
+  revision = "fb820629a6d32059875e5338763c392b3cf3470d"
+  version = "v0.2.0"
+
+[[projects]]
+  name = "github.com/go-martini/martini"
+  packages = ["."]
+  revision = "49411a5b646861ad29a6ddd5351717a0a9c49b94"
+  version = "v1.0"
+
+[[projects]]
   branch = "master"
   name = "github.com/gopherjs/gopherjs"
   packages = ["js"]
-  revision = "0892b62f0d9fb5857760c3cfca837207185117ee"
+  revision = "1babbf986f6fcb1156d0646cdba5c4f81bc32849"
+
+[[projects]]
+  name = "github.com/gorilla/context"
+  packages = ["."]
+  revision = "08b5f424b9271eedf6f9f0ce86cb9396ed337a42"
+  version = "v1.1.1"
+
+[[projects]]
+  name = "github.com/gorilla/mux"
+  packages = ["."]
+  revision = "e3702bed27f0d39777b0b37b664b6280e8ef8fbf"
+  version = "v1.6.2"
+
+[[projects]]
+  name = "github.com/gorilla/websocket"
+  packages = ["."]
+  revision = "66b9c49e59c6c48f0ffce28c2d8b8a5678502c6d"
+  version = "v1.4.0"
 
 [[projects]]
   name = "github.com/jackc/pgx"
@@ -120,6 +159,12 @@
   packages = ["."]
   revision = "027a6d1765d673d337e687394dbe780dd64e2a1e"
   version = "v2.3.0"
+
+[[projects]]
+  name = "github.com/konsorten/go-windows-terminal-sequences"
+  packages = ["."]
+  revision = "5c8c8bd35d3832f5d134ae1e1e375b69a4d25242"
+  version = "v1.0.1"
 
 [[projects]]
   name = "github.com/lib/pq"
@@ -175,10 +220,10 @@
   version = "1.6.3"
 
 [[projects]]
-  name = "github.com/urfave/cli"
+  branch = "master"
+  name = "github.com/yosida95/golang-jenkins"
   packages = ["."]
-  revision = "cfb38830724cc34fedffe9a2a29fb54fa9169cd1"
-  version = "v1.20.0"
+  revision = "e659c8a6f335a51a56b111c8e9044cf2db3d70eb"
 
 [[projects]]
   branch = "master"
@@ -191,27 +236,31 @@
     "internal/subtle",
     "pbkdf2",
     "poly1305",
-    "ssh"
+    "ssh",
+    "ssh/terminal"
   ]
-  revision = "a2144134853fc9a27a7b1e3eb4f19f1a76df13c9"
+  revision = "e3636079e1a4c1f337f212cc5cd2aca108f6c900"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/net"
+  packages = ["context"]
+  revision = "146acd28ed5894421fb5aac80ca93bc1b1f46f87"
 
 [[projects]]
   branch = "master"
   name = "golang.org/x/sys"
-  packages = ["unix"]
-  revision = "ac767d655b305d4e9612f5f6e33120b9176c4ad4"
-
-[[projects]]
-  name = "gopkg.in/fsnotify/fsnotify.v1"
-  packages = ["."]
-  revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
-  version = "v1.4.7"
+  packages = [
+    "unix",
+    "windows"
+  ]
+  revision = "4497e2df6f9e69048a54498c7affbbec3294ad47"
 
 [[projects]]
   name = "gopkg.in/ini.v1"
   packages = ["."]
-  revision = "358ee7663966325963d4e8b2e1fbd570c5195153"
-  version = "v1.38.1"
+  revision = "7b294651033cd7d9e7f0d9ffa1b75ed1e198e737"
+  version = "v1.38.3"
 
 [[projects]]
   name = "gopkg.in/macaron.v1"
@@ -222,6 +271,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "08eb816c7722cf416bbda963b5f72e54beb1b8cf3da3e0fe19e37963a7e5f37b"
+  inputs-digest = "02798878eb6715cd181f2ef0ee0b58d5176e60d16d41d625df18515675b99a32"
   solver-name = "gps-cdcl"
   solver-version = 1

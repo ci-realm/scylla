@@ -3,12 +3,13 @@
 with builtins;
 with lib;
 
-let
+rec {
   runDir = runCommand "scylla-dir" {} ''
     mkdir -p $out
     ln -s ${./public} $out/public
     ln -s ${./templates} $out/templates
   '';
+
   scylla-bin = buildGoPackage rec {
     name = "scylla-unstable-${version}";
     version = "2018-07-23";
@@ -37,8 +38,10 @@ let
       platforms = platforms.unix;
     };
   };
-in runCommand "scylla-dir" { buildInputs = [ makeWrapper ]; } ''
-  mkdir -p $out/bin
-  cp ${scylla-bin}/bin/scylla $out/bin
-  wrapProgram $out/bin/scylla --run "cd ${runDir}"
-''
+
+  scylla = runCommand "scylla-dir" { buildInputs = [ makeWrapper ]; } ''
+    mkdir -p $out/bin
+    cp ${scylla-bin}/bin/scylla $out/bin
+    wrapProgram $out/bin/scylla --run "cd ${runDir}"
+  '';
+}

@@ -26,7 +26,7 @@ let
 
   inherit (graham.dockerTools) buildLayeredImage buildImage;
 
-  scylla = callPackage ./.. {};
+  scylla = (callPackage ./.. {}).scylla;
 
   executables = [
     bashInteractive
