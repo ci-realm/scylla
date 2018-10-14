@@ -42,10 +42,6 @@
   version = "1.20.0"
 
 [[constraint]]
-  name = "github.com/docker/distribution"
-  version = "2.6.2"
-
-[[constraint]]
   name = "github.com/elazarl/go-bindata-assetfs"
   version = "1.0.0"
 
@@ -74,10 +70,6 @@
   version = "1.0.0"
 
 [[constraint]]
-  name = "github.com/opencontainers/go-digest"
-  version = "1.0.0-rc1"
-
-[[constraint]]
   branch = "master"
   name = "github.com/rgzr/sshtun"
 
@@ -95,6 +87,10 @@
 
 [[override]]
   name = "github.com/Unknwon/com"
+  branch = "master"
+
+[[override]]
+  name = "github.com/go-macaron/sockets"
   branch = "master"
 
 [prune]

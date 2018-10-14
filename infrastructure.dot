@@ -1,0 +1,10 @@
+digraph {
+  "Scylla"                -> "Builder Machine (EC2)" [ label = "nix-build" ]
+  "Scylla"                -> "Jenkins (docker)"      [ label = "trigger build" ]
+  "Builder Machine (EC2)" -> "Binary Cache (S3)"     [ label = "copy" ]
+  "Binary Cache (S3)"     -> "Jenkins (docker)"      [ label = "pull" ]
+  "Jenkins (docker)"      -> "Quay"                  [ label = "push" ]
+  "Jenkins (docker)"      -> "Jenkins (k8s-deploy)"  [ label = "trigger build" ]
+  "Jenkins (k8s-deploy)"  -> "Kubernetes"            [ label = "apply" ]
+  "Quay"                  -> "Kubernetes"            [ label = "pull" ]
+}

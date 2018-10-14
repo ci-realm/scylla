@@ -79,6 +79,20 @@ $$;
 
 
 --
+-- Name: notify_logline_inserted(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.notify_logline_inserted() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+  DECLARE BEGIN
+    PERFORM pg_notify('loglines'::text, row_to_json(NEW)::text);
+    RETURN NEW;
+  END;
+$$;
+
+
+--
 -- Name: notify_queue_inserted(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -131,6 +145,38 @@ CREATE SEQUENCE public.builds_id_seq
 --
 
 ALTER SEQUENCE public.builds_id_seq OWNED BY public.builds.id;
+
+
+--
+-- Name: loglines; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.loglines (
+    id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    build_id integer NOT NULL,
+    line text
+);
+
+
+--
+-- Name: loglines_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.loglines_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: loglines_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.loglines_id_seq OWNED BY public.loglines.id;
 
 
 --
@@ -197,6 +243,19 @@ CREATE SEQUENCE public.projects_id_seq
 --
 
 ALTER SEQUENCE public.projects_id_seq OWNED BY public.projects.id;
+
+
+--
+-- Name: prs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.prs (
+    id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT clock_timestamp() NOT NULL,
+    updated_at timestamp with time zone,
+    project integer NOT NULL,
+    data jsonb NOT NULL
+);
 
 
 --
@@ -317,6 +376,13 @@ ALTER TABLE ONLY public.builds ALTER COLUMN id SET DEFAULT nextval('public.build
 
 
 --
+-- Name: loglines id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.loglines ALTER COLUMN id SET DEFAULT nextval('public.loglines_id_seq'::regclass);
+
+
+--
 -- Name: logs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -360,6 +426,14 @@ ALTER TABLE ONLY public.builds
 
 
 --
+-- Name: loglines loglines_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.loglines
+    ADD CONSTRAINT loglines_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: logs logs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -381,6 +455,14 @@ ALTER TABLE ONLY public.projects
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: prs prs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.prs
+    ADD CONSTRAINT prs_pkey PRIMARY KEY (id);
 
 
 --
@@ -416,6 +498,13 @@ ALTER TABLE ONLY public.schema_migrations
 
 
 --
+-- Name: logline_build_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX logline_build_id ON public.loglines USING btree (build_id);
+
+
+--
 -- Name: queue_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -430,31 +519,10 @@ CREATE TRIGGER after_build BEFORE UPDATE ON public.builds FOR EACH ROW EXECUTE P
 
 
 --
--- Name: projects auto_update_trigger; Type: TRIGGER; Schema: public; Owner: -
+-- Name: loglines inserted; Type: TRIGGER; Schema: public; Owner: -
 --
 
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
-
-
---
--- Name: builds auto_update_trigger; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON public.builds FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
-
-
---
--- Name: logs auto_update_trigger; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON public.logs FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
-
-
---
--- Name: results auto_update_trigger; Type: TRIGGER; Schema: public; Owner: -
---
-
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON public.results FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
+CREATE TRIGGER inserted AFTER INSERT ON public.loglines FOR EACH ROW EXECUTE PROCEDURE public.notify_logline_inserted();
 
 
 --
@@ -465,11 +533,47 @@ CREATE TRIGGER queue_insert_notify AFTER INSERT ON public.queue FOR EACH ROW EXE
 
 
 --
+-- Name: projects updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER updated BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
+
+
+--
+-- Name: builds updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER updated BEFORE UPDATE ON public.builds FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
+
+
+--
+-- Name: logs updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER updated BEFORE UPDATE ON public.logs FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
+
+
+--
+-- Name: results updated; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER updated BEFORE UPDATE ON public.results FOR EACH ROW EXECUTE PROCEDURE public.auto_row_updated_at();
+
+
+--
 -- Name: builds builds_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.builds
     ADD CONSTRAINT builds_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.projects(id);
+
+
+--
+-- Name: loglines loglines_build_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.loglines
+    ADD CONSTRAINT loglines_build_id_fkey FOREIGN KEY (build_id) REFERENCES public.builds(id);
 
 
 --

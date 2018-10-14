@@ -1,0 +1,82 @@
+<template>
+  <div>
+    <h2 id="nix-flavoured-continuous-integration">Nix Flavoured Continuous Integration</h2>
+    <p>
+      Scylla is a simple CI server that solves one thing: Evaluate
+      <a href="https://nixos.org/nix/">Nix</a>
+      derivations and inform you and GitHub about the results.</p>
+    <p>Scylla is implemented in Go, and needs nothing but Nix for building, logging, and caching.</p>
+    <p>I try to keep the moving parts as reliable as possible, since at the end of the day, all we care about is that it works.</p>
+    <h3 id="what-scylla-can-do-for-you">What Scylla Can Do For You</h3>
+    <ul>
+      <li>Create binaries</li>
+      <li>Run tests</li>
+      <li>Populate your Nix cache</li>
+      <li>Update your GitHub PR status</li>
+      <li>Serve logs of your project builds</li>
+    </ul>
+    <h3 id="getting-started">Getting Started</h3>
+    <ol type="1">
+      <li><p>Get an OAuth token</p>
+        <p>Navigate to <a href="https://github.com/settings/tokens" class="uri">https://github.com/settings/tokens</a> and generate a new OAuth token. It only needs the <code>repo:status</code> permission.</p></li>
+      <li><p>Add the webhook</p>
+        <p>Go to <code>https://github.com/$owner/$repo/settings/hooks</code> (substitute your <code>owner</code>/<code>repo</code> in the URL).</p>
+        Add a webhook that points to your server, like <code>https://$host/hooks/github</code> (substitute <code>host</code> here to the location of your server, you can also use something like <a href="http://ngrok.com/">ngrok</a> for trying it out).<br />
+        These settings are required:
+        <ul>
+          <li>Content type: <code>application/json</code></li>
+          <li>Secret: (anything you want)</li>
+          <li>Enable at least the <code>pull request</code> event. The rest will at the momemt be simply ignored.</li>
+        </ul>
+      </li>
+      <li><p>Configure the server</p>
+        <p>Configuration is done via Environment variables (although flags also work). You need to set the following:</p>
+        <ul>
+          <li><code>GITHUB_TOKEN</code>: The token you created in the first step</li>
+          <li><code>GITHUB_USER</code>: The token you created in the first step</li>
+        </ul>
+      </li>
+      <li><p>Building the server</p>
+        <pre><code>nix build -f .</code></pre></li>
+      <li><p>Running the server</p>
+        <pre><code>./result/bin/scylla</code></pre></li>
+      <li><p>Add a <code>ci.nix</code> file to the project you want to use it with.</p>
+        <p>The following is just an example of the structure. It’s strongly recommended that you use a pinned version of <code>nixpkgs</code> so both Scylla and you are actually building identical things.</p>
+        <pre v-highlightjs="ciNix"><code class="ruby"></code></pre>
+        <p>All atributes in the returned attrset will be evaluated, in this case <code>app-binary</code> and <code>app-tests</code>. What Scylla actually does is to simply call <code>nix-build</code> on your <code>ci.nix</code> and store the results.</p>
+        <p>So you can make sure the <code>ci.nix</code> is working by doing that yourself first locally.</p>
+        <p>The <code>recurseIntoAttrs</code> function can be used to also build nested attrsets. Otherwise only functions in the top-level will be built.</p>
+      </li>
+    </ol>
+  </div>
+</template>
+
+<script>
+export default {
+  name: 'hello',
+  data() {
+    return {
+      ciNix: `{ nixpkgs ? import (fetchGit {
+        url = https://github.com/NixOS/nixpkgs;
+        ref = "24429d66a3fa40ca98b50cad0c9153e80f56c4a2";
+      }) {} }: {
+        app-binary = callPackage ./. {};
+        app-tests = recurseIntoAttrs {
+          callPackage ./. { slowTests = true; };
+          callPackage ./. { fastTests = true; };
+  };
+}`,
+    }
+  },
+  methods: {
+  },
+}
+</script>
+
+<!-- Add "scoped" attribute to limit CSS to this component only -->
+<style scoped>
+  code {
+    background: #282828;
+    color: #ebdbb2;
+  }
+</style>

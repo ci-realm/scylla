@@ -66,6 +66,15 @@ CREATE TABLE logs (
   content    TEXT
 );
 
+CREATE TABLE loglines (
+  id         SERIAL      NOT NULL UNIQUE PRIMARY KEY,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  build_id   INT         NOT NULL REFERENCES builds(id),
+  line       TEXT
+);
+
+CREATE INDEX logline_build_id ON loglines (build_id);
+
 CREATE TABLE results (
   id         SERIAL      NOT NULL UNIQUE PRIMARY KEY,
   created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
@@ -82,10 +91,10 @@ $$
   END;
 $$ LANGUAGE 'plpgsql';
 
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON projects FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON builds FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON logs FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
-CREATE TRIGGER auto_update_trigger BEFORE UPDATE ON results FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
+CREATE TRIGGER updated BEFORE UPDATE ON projects FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
+CREATE TRIGGER updated BEFORE UPDATE ON builds   FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
+CREATE TRIGGER updated BEFORE UPDATE ON logs     FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
+CREATE TRIGGER updated BEFORE UPDATE ON results  FOR EACH ROW EXECUTE PROCEDURE auto_row_updated_at();
 
 CREATE FUNCTION mark_build_finished() RETURNS TRIGGER AS
 $$
@@ -99,14 +108,29 @@ $$ LANGUAGE 'plpgsql';
 
 CREATE TRIGGER after_build BEFORE UPDATE ON builds FOR EACH ROW EXECUTE PROCEDURE mark_build_finished();
 
+CREATE FUNCTION notify_logline_inserted() RETURNS trigger AS
+$$
+  DECLARE BEGIN
+    PERFORM pg_notify('loglines'::text, row_to_json(NEW)::text);
+    RETURN NEW;
+  END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER inserted AFTER INSERT ON loglines FOR EACH ROW EXECUTE PROCEDURE notify_logline_inserted();
+
 -- migrate:down
 
 DROP FUNCTION IF EXISTS auto_row_updated_at CASCADE;
 DROP FUNCTION IF EXISTS notify_queue_inserted CASCADE;
+DROP FUNCTION IF EXISTS notify_logline_inserted CASCADE;
+DROP FUNCTION IF EXISTS mark_build_finished CASCADE;
+
 DROP TABLE IF EXISTS builds CASCADE;
-DROP TABLE IF EXISTS projects CASCADE;
+DROP TABLE IF EXISTS loglines CASCADE;
 DROP TABLE IF EXISTS logs CASCADE;
-DROP TABLE IF EXISTS results CASCADE;
+DROP TABLE IF EXISTS projects CASCADE;
 DROP TABLE IF EXISTS queue CASCADE;
+DROP TABLE IF EXISTS results CASCADE;
+
 DROP TYPE IF EXISTS build_status;
 DROP TYPE IF EXISTS log_kind;
