@@ -29,4 +29,19 @@ let
 in mkShell {
   buildInputs = [ env ];
   PERL5LIB = "${git.outPath}/lib/perl5/site_perl/5.28.0";
+
+  CGO_ENABLED = "1";
+  GOPATH="/home/manveru/go";
+  GOROOT="${go}/share/go";
+
+  shellHook = ''
+    export GOPATH="$HOME/go";
+    export GOROOT="${go}/share/go"
+    if [[ -e shell.nix ]]; then
+      set -x
+      rm -rf vendor
+      ln -s ${default.depTree}/vendor $PWD/vendor
+      set +x
+    fi
+  '';
 }
