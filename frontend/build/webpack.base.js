@@ -1,15 +1,16 @@
-const path = require('path');
-const config = require('../config');
-const webpack = require('webpack');
+const path = require('path')
+const config = require('../config')
+const webpack = require('webpack')
 const VueLoaderPlugin = require('vue-loader/lib/plugin')
-const ESlintFormatter = require('eslint-friendly-formatter');
+const VuetifyLoaderPlugin = require('vuetify-loader/lib/plugin')
+const ESlintFormatter = require('eslint-friendly-formatter')
 
 const defaults = {
   __DEV__: JSON.stringify(config.isDev),
   __PROD__: JSON.stringify(config.isProd),
   'process.env.NODE_ENV': `"${config.env}"`,
   __APP_MODE__: `"${config.appMode}"`,
-};
+}
 
 module.exports = {
   mode: 'development',
@@ -30,10 +31,15 @@ module.exports = {
   },
   plugins: [
     new webpack.DefinePlugin(defaults),
-    new VueLoaderPlugin()
+    new VueLoaderPlugin(),
+    new VuetifyLoaderPlugin()
   ],
   module: {
     rules: [
+      {
+        test: /\.styl$/,
+        loader: ['style-loader', 'css-loader', 'stylus-loader'],
+      },
       {
         test: /\.(js|vue)$/,
         loader: 'eslint-loader',
@@ -81,4 +87,4 @@ module.exports = {
       },
     ],
   },
-};
+}

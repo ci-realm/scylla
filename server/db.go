@@ -49,7 +49,7 @@ func SetupDB() {
 		logger.Fatalln(err)
 	}
 
-	go streamFakeLog(3)
+	// go streamFakeLog(1)
 }
 
 func streamFakeLog(buildID int64) {

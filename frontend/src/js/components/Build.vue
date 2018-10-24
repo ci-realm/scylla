@@ -16,7 +16,12 @@
     <v-icon v-if="live">mdi-pause</v-icon>
     <v-icon v-else>mdi-play</v-icon>
   </v-btn>
-  <v-data-iterator :items="lines" :item-key="time" id="console-log">
+  <v-data-iterator
+    id="console-log"
+    :rows-per-page-items="rowsPerPageItems"
+    :pagination.sync="pagination"
+    :items="filteredLines"
+    >
     <v-flex slot="item" slot-scope="props" xs12 sm6 md4 lg3>
       <div class="line"><time>{{props.item.time}}</time><pre>{{props.item.line}}</pre></div>
     </v-flex>
@@ -48,7 +53,7 @@ export default {
       this.live = !this.live
     },
     scrollToEnd() {
-      if (this.live) {
+      if (this.live && this.$el.querySelector) {
         const container = this.$el.querySelector('#console-log')
         container.scrollTop = container.scrollHeight
       }
@@ -88,9 +93,18 @@ export default {
     pr() {
       return this.build.Hook.pull_request
     },
+    filteredLines() {
+      return this.$store.state.socket.build_lines
+    },
   },
   data() {
-    return { live: true }
+    return {
+      live: true,
+      rowsPerPageItems: [25, 50, 100],
+      pagination: {
+        rowsPerPage: 4,
+      },
+    }
   },
 }
 </script>

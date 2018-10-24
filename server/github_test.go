@@ -14,7 +14,7 @@ func init() {
 	os.Setenv("BUILDERS", "none x86_64-linux")
 	os.Setenv("PRIVATE_SSH_KEY", "empty")
 	os.Setenv("DATABASE_URL", "nothing")
-	parseConfig()
+	ParseConfig()
 }
 
 func TestGithubJob(t *testing.T) {
