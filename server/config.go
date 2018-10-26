@@ -30,14 +30,29 @@ func ParseConfig() {
 	config.BuildDir = "./ci"
 	config.PrivateSSHKeyPath = "/id_ed25519"
 
-	err := arg.Parse(&config)
+	parser, err := arg.NewParser(arg.Config{Program: "scylla"}, &config)
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	err = parser.Parse(os.Args[1:])
 	if err != nil { // needed for goconvey
-		if strings.HasPrefix(err.Error(), "unknown argument -test.v") {
+		if strings.HasPrefix(err.Error(), "unknown argument -test.v") ||
+			strings.HasPrefix(err.Error(), "unknown argument -test.coverprofile") {
 			return
 		}
-		if strings.HasPrefix(err.Error(), "unknown argument -test.coverprofile") {
-			return
+
+		if err == arg.ErrHelp {
+			parser.WriteHelp(os.Stdout)
+			os.Exit(0)
 		}
+
+		if err == arg.ErrVersion {
+			fmt.Println("scylla version 0.0.1")
+			os.Exit(0)
+		}
+
+		parser.WriteUsage(os.Stdout)
 		fmt.Println(err)
 		os.Exit(1)
 	}

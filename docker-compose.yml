@@ -6,7 +6,7 @@ volumes:
     driver: local
 services:
   postgres:
-    image: postgres:11
+    image: postgres:10.5
     restart: always
     volumes:
       - 'scylla-pg:/var/lib/postgresql/data'

@@ -1,9 +1,8 @@
 <template>
 <div>
-  <h1>Recent Builds</h1>
+  <h1>Recent Builds for {{ $route.params.name }}</h1>
   <v-data-table :headers="headers" :items="buildData" class="elevation-1" :rows-per-page-items="rowsPerPageItems"
-    :pagination.sync="pagination"
-                >
+    :pagination.sync="pagination">
     <template slot="items" slot-scope="props">
       <td>
         <router-link :to="props.item.buildLink">#{{props.item.id}}</router-link>
@@ -38,9 +37,10 @@ export default {
   name: 'builds',
   created() {
     if (!this.refresher) {
-      this.$socket.sendObj({ Kind: 'last-builds' })
+      const msg = { Kind: 'organization-builds', Data: { orgName: this.$route.params.name } }
+      this.$socket.sendObj(msg)
       this.refresher = setInterval(() => {
-        this.$socket.sendObj({ Kind: 'last-builds' })
+        this.$socket.sendObj(msg)
       }, 5000)
     }
   },
@@ -93,7 +93,7 @@ export default {
       ]
     },
     buildData() {
-      return this.$store.state.socket.lastBuilds.map((build) => {
+      return this.$store.state.socket.organizationBuilds.map((build) => {
         const pr = build.Hook.pull_request
 
         return {

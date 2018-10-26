@@ -1,6 +1,6 @@
 { pkgs ? import ./nix/nixpkgs.nix }: with pkgs;
 let
-  default = callPackage ./. {};
+  depTree = import ./nix/deptree.nix;
   gems = bundlerEnv {
     inherit ruby_2_5;
     name = "scylla-dev-gems";
@@ -10,6 +10,8 @@ let
     name = "scylla-env";
     paths = [
       yarn
+      yarn2nix
+      nodejs
       dbmate
       dep2nix
       (lowPrio gotools)
@@ -40,7 +42,7 @@ in mkShell {
     if [[ -e shell.nix ]]; then
       set -x
       rm -rf vendor
-      ln -s ${default.depTree}/vendor $PWD/vendor
+      ln -s ${depTree}/vendor $PWD/vendor
       set +x
     fi
   '';

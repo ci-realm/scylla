@@ -21,9 +21,14 @@ func (s *webSocket) mainLoop() {
 	for {
 		select {
 		case msg := <-s.receiver:
+			logger.Println(msg.Kind)
 			switch msg.Kind {
 			case "last-builds":
 				s.getLastBuilds(msg.Data)
+			case "organizations":
+				s.getOrganizations(msg.Data)
+			case "organization-builds":
+				s.getOrganizationBuilds(msg.Data)
 			case "build":
 				s.getBuild(msg.Data)
 			case "build-log-watch":
@@ -36,6 +41,26 @@ func (s *webSocket) mainLoop() {
 		case err := <-s.errorChannel:
 			logger.Println(err)
 		}
+	}
+}
+
+func (s *webSocket) getOrganizations(data map[string]interface{}) {
+	s.sender <- &Message{
+		Mutation: "ORGANIZATIONS",
+		Data:     map[string]interface{}{"organizations": wsOrganizations()},
+	}
+}
+
+func (s *webSocket) getOrganizationBuilds(data map[string]interface{}) {
+	orgName, ok := data["orgName"].(string)
+	if !ok {
+		logger.Println("missing orgName")
+		return
+	}
+
+	s.sender <- &Message{
+		Mutation: "ORGANIZATION_BUILDS",
+		Data:     map[string]interface{}{"organizationBuilds": wsLatestBuildsForOrg(orgName)},
 	}
 }
 
@@ -120,12 +145,13 @@ func (s *webSocket) getBuildLogWatch(data map[string]interface{}) {
 
 func (s *webSocket) getBuildLogUnwatch(data map[string]interface{}) {
 	if s.listener != nil {
-		logger.Println("Unregister from unwatch")
+		logger.Println("Unregister from build log")
 		logListenerUnregister <- s.listener
 		s.listener = nil
 	}
 }
 
+// Message encapsulates data sent and received via the websocket.
 type Message struct {
 	Kind     string
 	Action   string `json:"action,omitempty"`
@@ -145,6 +171,22 @@ func handleWebSocket(ctx *macaron.Context, receiver <-chan *Message, sender chan
 	socket.mainLoop()
 }
 
+func wsOrganizations() (orgs []dbOrg) {
+	conn, err := pgxpool.Acquire()
+	if err != nil {
+		logger.Panic(err)
+		return
+	}
+	defer pgxpool.Release(conn)
+
+	orgs, err = findOrganizations(conn)
+
+	if err != nil {
+		logger.Panic(err)
+	}
+	return
+}
+
 func wsLatestBuilds() (builds []dbBuild) {
 	conn, err := pgxpool.Acquire()
 	if err != nil {
@@ -153,10 +195,27 @@ func wsLatestBuilds() (builds []dbBuild) {
 	}
 	defer pgxpool.Release(conn)
 
-	builds, err = findBuilds(conn)
+	builds, err = findBuilds(conn, "")
 
 	if err != nil {
 		logger.Panic(err)
+	}
+
+	return
+}
+
+func wsLatestBuildsForOrg(orgName string) (builds []dbBuild) {
+	conn, err := pgxpool.Acquire()
+	if err != nil {
+		logger.Panic(err)
+		return
+	}
+	defer pgxpool.Release(conn)
+
+	builds, err = findBuilds(conn, orgName)
+
+	if err != nil {
+		logger.Println(orgName, err)
 	}
 
 	return

@@ -24,10 +24,10 @@ CREATE TRIGGER queue_insert_notify
   FOR EACH ROW EXECUTE PROCEDURE notify_queue_inserted();
 
 CREATE TABLE projects (
-  id         SERIAL      NOT NULL UNIQUE PRIMARY KEY,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
-  updated_at TIMESTAMPTZ,
-  name       TEXT        NOT NULL UNIQUE
+  id           SERIAL      NOT NULL UNIQUE PRIMARY KEY,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT clock_timestamp(),
+  updated_at   TIMESTAMPTZ,
+  name         TEXT        NOT NULL UNIQUE
 );
 
 CREATE TYPE build_status as enum (

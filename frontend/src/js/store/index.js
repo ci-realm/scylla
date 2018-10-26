@@ -13,6 +13,8 @@ export default new Vuex.Store({
       error: '',
       reconnects: 0,
       lastBuilds: [],
+      organizations: [],
+      organizationBuilds: [],
       build: {},
       build_lines: [],
       reconnectError: false,
@@ -43,6 +45,12 @@ export default new Vuex.Store({
     },
     LAST_BUILDS(state, message) {
       state.socket.lastBuilds = message.Data.builds
+    },
+    ORGANIZATIONS(state, message) {
+      state.socket.organizations = message.Data.organizations
+    },
+    ORGANIZATION_BUILDS(state, message) {
+      state.socket.organizationBuilds = message.Data.organizationBuilds
     },
     BUILD(state, message) {
       state.socket.build = message.Data.build

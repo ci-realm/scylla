@@ -1,3 +1,6 @@
+with builtins;
+with lib;
+
 self: super:
 let
   manveru-nur-packages = fetchTarball {
@@ -8,13 +11,13 @@ in {
   git-info = (self.callPackage "${manveru-nur-packages}/default.nix" {}).lib.git-info;
   go = super.go_1_11;
   decrypt-ejson = path:
-    (builtins.fromJSON (builtins.readFile
+    (fromJSON (readFile
       (super.runCommand "ejson" { nativeBuildInputs = with super; [ ruby ejson jq ]; } ''
         export EJSON_KEYDIR='${/opt/ejson/keys}'
         ejson decrypt '${path}' | ruby ${./ejson.rb} > $out
       '')));
   makeDeploymentID = sha:
-    super.lib.removeSuffix "\n" (builtins.readFile (
+    super.lib.removeSuffix "\n" (readFile (
       super.runCommand "deployment_id" {sha = sha;} ''
         ${super.ruby}/bin/ruby -r securerandom -e 'print ENV["sha"][0...8] + "-#{SecureRandom.hex(4)}"' > $out
       ''
@@ -22,4 +25,5 @@ in {
   tagFromGit = self.git-info "git rev-parse --verify HEAD";
   dbmate = self.callPackage ./pkgs/dbmate {};
   mkShell = super.mkShell.override { stdenv = self.stdenvNoCC; };
+  nodejs = super.nodejs-slim-10_x;
 }

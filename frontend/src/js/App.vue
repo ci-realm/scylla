@@ -7,24 +7,13 @@
       app
     >
       <v-list dense>
-        <v-list-tile to="/">
+        <v-list-tile v-for="item in menuItems" :to="item.link">
           <v-list-tile-action>
-            <v-icon>mdi-home</v-icon>
+            <v-icon>{{item.icon}}</v-icon>
           </v-list-tile-action>
           <v-list-tile-content>
             <v-list-tile-title>
-              Dashboard
-            </v-list-tile-title>
-          </v-list-tile-content>
-        </v-list-tile>
-
-        <v-list-tile to="/builds">
-          <v-list-tile-action>
-            <v-icon>mdi-history</v-icon>
-          </v-list-tile-action>
-          <v-list-tile-content>
-            <v-list-tile-title>
-              Builds
+              {{item.title}}
             </v-list-tile-title>
           </v-list-tile-content>
         </v-list-tile>
@@ -38,11 +27,13 @@
 
     <v-content>
       <v-container fluid fill-height>
-        <v-layout align-center justify-center>
-          <v-flex v-if="isConnected">
+        <v-layout justify-center v-if="isConnected">
+          <v-flex>
             <router-view/>
           </v-flex>
-          <v-flex v-else style="text-align: center;">
+        </v-layout>
+        <v-layout v-else align-center justify-center>
+          <v-flex style="text-align: center;">
             <v-progress-circular
               :size="70"
               :width="7"
@@ -86,6 +77,11 @@ export default {
       drawer: true,
       scyllaVersionLink: 'localhost',
       scyllaHostname: 'localhost',
+      menuItems: [
+        { link: '/', icon: 'mdi-home', title: 'Home' },
+        { link: '/builds', icon: 'mdi-history', title: 'Builds' },
+        { link: '/organizations', icon: 'mdi-apps', title: 'Organizations' },
+      ],
     }
   },
 }
@@ -96,13 +92,4 @@ export default {
 .queue-row   { background-color: rgba(255,255,0,0.2); }
 .build-row   { background-color: rgba(255,255,255,0.2); }
 .failure-row { background-color: rgba(255,0,0,0.2); }
-
-pre.console-output {
-  max-width: 96vw;
-  overflow: auto;
-  border-spacing: 0;
-  white-space: pre-wrap;
-  word-wrap: break-word;
-  font-family: monospace;
-}
 </style>

@@ -1,8 +1,8 @@
 { callPackage
 , lib
 , stdenv
-, dockerTools
 , writeTextFile
+, dockerTools
 , busybox
 , coreutils
 , curl
@@ -14,19 +14,12 @@
 , openssh
 , vim
 , bashInteractive
-, nixUnstable
+, nix
+, scylla
 }:
 
 let
-  # TODO: this isn't in nixpkgs proper yet
-  graham = import (fetchTarball {
-    # url = https://github.com/graham-at-target/nixpkgs/archive/0e23958981e3a99567dbcbdadf694384e8022a47.tar.gz;
-    url = https://github.com/NixOS/nixpkgs/archive/4fe900619080f0b1a804abbccaab500d819ead10.tar.gz;
-  }) {};
-
-  inherit (graham.dockerTools) buildLayeredImage buildImage;
-
-  scylla = (callPackage ./.. {}).scylla;
+  inherit (dockerTools) buildLayeredImage buildImage;
 
   executables = [
     bashInteractive
@@ -35,7 +28,7 @@ let
     curl
     git
     gnutar
-    nixUnstable
+    nix
     openssh
     which
     vim

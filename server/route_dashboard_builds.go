@@ -9,7 +9,7 @@ func getDashboardBuilds(ctx *macaron.Context) {
 	// projectName := ctx.Params("user") + "/" + ctx.Params("repo")
 
 	withConn(ctx, func(conn *pgx.Conn) error {
-		builds, err := findBuilds(conn)
+		builds, err := findBuilds(conn, "")
 		if err != nil {
 			return err
 		}

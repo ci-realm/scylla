@@ -20,9 +20,8 @@
     id="console-log"
     :rows-per-page-items="rowsPerPageItems"
     :pagination.sync="pagination"
-    :items="filteredLines"
-    >
-    <v-flex slot="item" slot-scope="props" xs12 sm6 md4 lg3>
+    :items="filteredLines">
+    <v-flex slot="item" slot-scope="props" xs12 sm12 md12 lg12>
       <div class="line"><time>{{props.item.time}}</time><pre>{{props.item.line}}</pre></div>
     </v-flex>
   </v-data-iterator>
@@ -100,7 +99,7 @@ export default {
   data() {
     return {
       live: true,
-      rowsPerPageItems: [25, 50, 100],
+      rowsPerPageItems: [2, 4, 8],
       pagination: {
         rowsPerPage: 4,
       },
@@ -110,24 +109,26 @@ export default {
 </script>
 
 <style scoped>
-  code:before {
-    content: "";
-  }
-  #console-log {
-    max-height: 30em;
-    min-height: 30em;
-    overflow-y: scroll;
-    overflow-x: scroll;
-  }
-  #console-log pre {
-    white-space: pre-wrap;
-    word-wrap: break-word;
-    font-size: 1em;
-    background: #212121;
-  }
-  #console-log time {
-    background: #212121;
-    float: left;
-    padding-right: 1em;
-  }
+code:before {
+  content: "";
+}
+#console-log {
+  max-height: 30em;
+  min-height: 30em;
+  overflow-y: scroll;
+  overflow-x: scroll;
+}
+#console-log pre {
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  font-size: 1em;
+  background: #212121;
+  font-family: monospace;
+}
+#console-log time {
+  background: #212121;
+  float: left;
+  padding-right: 1em;
+  font-family: monospace;
+}
 </style>

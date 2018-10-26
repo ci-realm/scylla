@@ -141,24 +141,80 @@ func findBuildByID(db *pgx.Conn, buildID int) (*githubJob, error) {
 	return &githubJob{Hook: hook, conn: db, buildID: buildID}, nil
 }
 
-// TODO: improve performance by reducing the builds.data
-func findBuilds(db *pgx.Conn) ([]dbBuild, error) {
-	builds := []dbBuild{}
+type dbOrg struct {
+	Owner      string
+	URL        string
+	BuildCount int64
+}
+
+func findOrganizations(db *pgx.Conn) ([]dbOrg, error) {
+	orgs := []dbOrg{}
 	rows, err := db.Query(
 		`SELECT
-       builds.id,
-       builds.status,
-       builds.created_at,
-       builds.updated_at,
-       builds.status_at,
-       builds.finished_at,
-       projects.name,
-       builds.data
-     FROM builds
-     JOIN projects ON projects.id = builds.project_id
-     ORDER BY builds.created_at DESC
-     LIMIT 100;`,
+      data#>>'{pull_request, head, repo, owner, login}' AS owner,
+      data#>>'{pull_request, head, repo, owner, html_url}' AS url,
+      count(id)
+      FROM builds
+      GROUP BY url, owner`,
 	)
+
+	if err != nil {
+		return orgs, err
+	}
+
+	for rows.Next() {
+		org := dbOrg{}
+		err = rows.Scan(&org.Owner, &org.URL, &org.BuildCount)
+		if err != nil {
+			return orgs, err
+		}
+		orgs = append(orgs, org)
+	}
+
+	return orgs, err
+}
+
+// TODO: improve performance by reducing the builds.data
+func findBuilds(db *pgx.Conn, orgName string) ([]dbBuild, error) {
+	builds := []dbBuild{}
+	var rows *pgx.Rows
+	var err error
+
+	if orgName == "" {
+		rows, err = db.Query(
+			`SELECT
+         builds.id,
+         builds.status,
+         builds.created_at,
+         builds.updated_at,
+         builds.status_at,
+         builds.finished_at,
+         projects.name,
+         builds.data
+       FROM builds
+       JOIN projects ON projects.id = builds.project_id
+       ORDER BY builds.created_at DESC
+       LIMIT 100;`,
+		)
+	} else {
+		rows, err = db.Query(
+			`SELECT
+         builds.id,
+         builds.status,
+         builds.created_at,
+         builds.updated_at,
+         builds.status_at,
+         builds.finished_at,
+         projects.name,
+         builds.data
+       FROM builds
+       JOIN projects ON projects.id = builds.project_id
+       WHERE data#>>'{pull_request, head, repo, owner, login}' = $1
+       ORDER BY builds.created_at DESC
+       LIMIT 100;`,
+			orgName,
+		)
+	}
 
 	if err != nil {
 		return builds, err
