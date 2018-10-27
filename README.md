@@ -32,6 +32,47 @@ $ nix-shell -p vgo2nix --command 'vgo2nix'
 
 ## Getting Started
 
+### Setting up
+
+#### Build
+
+```console
+$ go get github.com/manveru/scylla
+```
+
+##### Setup postgresql database
+
+(Assuming that postgresql is running locally)
+
+Create database:
+
+```
+$ createuser $USER
+$ createdb scylla --owner $USER
+```
+
+
+Apply database migration
+
+```console
+$ go get github.com/amacneil/dbmate
+$ DATABASE_URL="postgres:///scylla?sslmode=disable&host=/tmp" dbmate up
+```
+
+#### Running
+
+```
+$ scylla \
+  --builders nix@eddie.r \
+  --github-token <INSERT_GITHUB_TOKEN> \
+  --github-url https://github.com/<owner>/<project> \
+  --github-user <GITHUB_USER> \
+  --private-ssh-key ~/.ssh/id_ed25519 \
+  --database-url 'postgres:///tmp/dbname'
+```
+
+### Running jobs
+
 1. Get an OAuth token
 
    Navigate to [https://github.com/settings/tokens](https://github.com/settings/tokens)
