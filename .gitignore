@@ -8,6 +8,7 @@ scylla
 vendor
 gin-bin
 public/ci
+scylla_ssh_key*
 
 # Created by .ignore support plugin (hsz.mobi)
 ### Node template
