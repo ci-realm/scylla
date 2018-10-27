@@ -154,7 +154,6 @@ func (s *webSocket) getBuildLogUnwatch(data map[string]interface{}) {
 // Message encapsulates data sent and received via the websocket.
 type Message struct {
 	Kind     string
-	Action   string `json:"action,omitempty"`
 	Mutation string `json:"mutation,omitempty"`
 	Data     map[string]interface{}
 }
