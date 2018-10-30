@@ -10,6 +10,7 @@ let
     paths = [
       yarn
       vgo2nix
+      cachix
       yarn2nix
       nodejs
       dbmate
@@ -22,7 +23,6 @@ let
       nix-prefetch-git
       git
       protobuf3_4
-      remarshal
       ejson
       gems.wrappedRuby
       (lowPrio gems)

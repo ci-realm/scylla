@@ -38,34 +38,33 @@ let
       };
     };
   };
-in
-  stdenv.mkDerivation {
-    name = "scylla-frontend";
-    phases = [ "buildPhase" ];
-    nativeBuildInputs = [ deps yarn ];
-    src = filterSourcePrefixes ./. [
-      ./build
-      ./config
-      ./index.html
-      ./package.json
-      ./src
-      ./static
-      ./test
-      ./webpack.config.js
-      ./yarn.lock
-      ./.eslintrc.js
-      ./.eslintignore
-      ./.babelrc
-      ./.prettierrc
-    ];
-    buildPhase = ''
-      mkdir -p $out
-      cp -r $src $out/tmp
-      chmod -R 0777 $out/tmp
-      cd $out/tmp
-      ln -sf ${deps}/node_modules node_modules
-      yarn run build
-      cp -r dist/* $out
-      rm -rf $out/tmp
-    '';
-  }
+in stdenv.mkDerivation {
+  name = "scylla-frontend";
+  phases = [ "buildPhase" ];
+  nativeBuildInputs = [ deps yarn ];
+  src = filterSourcePrefixes ./. [
+    ./build
+    ./config
+    ./index.html
+    ./package.json
+    ./src
+    ./static
+    ./test
+    ./webpack.config.js
+    ./yarn.lock
+    ./.eslintrc.js
+    ./.eslintignore
+    ./.babelrc
+    ./.prettierrc
+  ];
+  buildPhase = ''
+    mkdir -p $out
+    cp -r $src $out/tmp
+    chmod -R 0777 $out/tmp
+    cd $out/tmp
+    ln -sf ${deps}/node_modules node_modules
+    yarn run build
+    cp -r dist/* $out
+    rm -rf $out/tmp
+  '';
+}

@@ -144,6 +144,7 @@ func (j *githubJob) build() error {
 
 	if len(j.resultNixPaths()) > 0 {
 		logger.Printf("%s: skipping build, results exist already.\n", j.id())
+		j.onSuccess()
 		return nil
 	}
 
@@ -174,6 +175,16 @@ func (j *githubJob) build() error {
 	}
 
 	return j.nixBuild()
+}
+
+func (j *githubJob) recordResultsInDB() {
+	for _, nixStorePath := range j.resultNixPaths() {
+		err := insertResult(j.buildID, nixStorePath)
+		if err != nil {
+			j.onError(err, "failed storing result in DB")
+			return
+		}
+	}
 }
 
 func (j *githubJob) gitFetch() error {
@@ -215,6 +226,16 @@ func (j *githubJob) runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 
 	var combinedOutput bytes.Buffer
 
+	// devNull, _ := os.Open(os.DevNull)
+	// devNull.Close()
+
+	// cmd.Stdin = devNull
+	// stdinPipe, err := cmd.StdinPipe()
+	// if err != nil {
+	// 	logger.Fatalln(err)
+	// }
+	// stdinPipe.Close()
+
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
 		logger.Fatalln(err)
@@ -248,7 +269,7 @@ func (j *githubJob) runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 
 	if err := cmd.Start(); err != nil {
 		_, _ = io.WriteString(&combinedOutput, err.Error())
-		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
+		return &combinedOutput, fmt.Errorf("%s failed with %s", cmd.Path, err)
 	}
 
 	wg.Wait()
@@ -256,7 +277,7 @@ func (j *githubJob) runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 
 	if err := cmd.Wait(); err != nil {
 		_, _ = io.WriteString(&combinedOutput, err.Error())
-		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
+		return &combinedOutput, fmt.Errorf("%s failed with %s", cmd.Path, err)
 	}
 
 	return &combinedOutput, nil
@@ -409,23 +430,8 @@ func (j *githubJob) resultNixPaths() []string {
 }
 
 func (j *githubJob) copyResultsToCache() {
-	for _, nixStorePath := range j.resultNixPaths() {
-		err := insertResult(j.buildID, nixStorePath)
-		if err != nil {
-			j.onError(err, "failed storing result in DB")
-			return
-		}
-	}
-
-	_, err := j.runCmd(exec.Command(
-		"ssh", "root@3.120.166.103",
-		"nix", "copy",
-		"--all",
-		"--to", "s3://scylla-cache?region=eu-central-1",
-	))
-	if err != nil {
-		j.onError(err, "failed copying results to binary cache")
-	}
+	copyResultsToCachix(j, config.CachixName)
+	copyResultsToNixStore(j, config.NixCopyURL)
 }
 
 func (j *githubJob) findOrCreateProjectID() (int, error) {
