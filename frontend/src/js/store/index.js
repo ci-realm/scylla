@@ -43,25 +43,28 @@ export default new Vuex.Store({
     SOCKET_RECONNECT_ERROR(state) {
       state.socket.reconnectError = true
     },
-    LAST_BUILDS(state, message) {
-      state.socket.lastBuilds = message.Data.builds
+
+    // Custom mutation messages
+
+    lastBuilds(state, message) {
+      state.socket.lastBuilds = message.data.builds
     },
-    ORGANIZATIONS(state, message) {
-      state.socket.organizations = message.Data.organizations
+    organizations(state, message) {
+      state.socket.organizations = message.data.organizations
     },
-    ORGANIZATION_BUILDS(state, message) {
-      state.socket.organizationBuilds = message.Data.organizationBuilds
+    organizationBuilds(state, message) {
+      state.socket.organizationBuilds = message.data.organizationBuilds
     },
-    BUILD(state, message) {
-      state.socket.build = message.Data.build
-      state.socket.build_lines = message.Data.build.Log.map((log) => {
+    build(state, message) {
+      state.socket.build = message.data.build
+      state.socket.build_lines = message.data.build.Log.map((log) => {
         const time = Moment(log.created_at).format('HH:mm:ss:SS')
         return { time, line: log.line }
       })
     },
-    BUILD_LOG(state, message) {
-      const time = Moment(message.Data.time).format('HH:mm:ss:SS')
-      state.socket.build_lines.push({ time, line: message.Data.line })
+    buildLog(state, message) {
+      const time = Moment(message.data.time).format('HH:mm:ss:SS')
+      state.socket.build_lines.push({ time, line: message.data.line })
     },
   },
   actions: {

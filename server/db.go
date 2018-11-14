@@ -371,17 +371,20 @@ func updateBuildStatus(job *githubJob, status string) {
 	tx, err := pgxpool.BeginEx(ctx, nil)
 	if err != nil {
 		logger.Println("Failed updating build status:", err)
+		return
 	}
 	defer func() { cancel(); _ = tx.Rollback() }()
 
 	_, err = tx.ExecEx(ctx, `SET idle_in_transaction_session_timeout TO '1000';`, nil)
 	if err != nil {
 		logger.Println("Failed updating build status:", err)
+		return
 	}
 
 	_, err = tx.ExecEx(ctx, `UPDATE builds SET status = $1, status_at = now() WHERE id = $2;`, nil, status, job.buildID)
 	if err != nil {
 		logger.Println("Failed updating build status:", err)
+		return
 	}
 
 	err = tx.CommitEx(ctx)
@@ -416,4 +419,37 @@ func insertResult(buildID int, path string) error {
 		`INSERT INTO results (build_id, path) VALUES ($1, $2)`,
 		buildID, path)
 	return err
+}
+
+func compactLog(buildID int) error {
+	tx, err := pgxpool.Begin()
+	if err != nil {
+		return fmt.Errorf("Failed starting transaction: %s", err)
+	}
+
+	defer func() { _ = tx.Rollback() }()
+
+	_, err = tx.Exec(
+		`INSERT INTO logs (build_id, content) SELECT $1, string_agg(created_at::text || ' ' || line, '\n')
+     FROM loglines
+     WHERE build_id = $1`,
+		buildID,
+	)
+	if err != nil {
+		return fmt.Errorf("Failed inserting logs: %s", err)
+	}
+
+	_, err = tx.Exec(
+		`DELETE FROM loglines WHERE build_id = $1`,
+		buildID,
+	)
+	if err != nil {
+		return fmt.Errorf("Failed deleting old logs: %s", err)
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		return fmt.Errorf("Failed transaction for compactLog: %s", err)
+	}
+	return nil
 }

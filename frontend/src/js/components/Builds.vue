@@ -38,9 +38,9 @@ export default {
   name: 'builds',
   created() {
     if (!this.refresher) {
-      this.$socket.sendObj({ Kind: 'last-builds' })
+      this.$socket.sendObj({ kind: 'lastBuilds' })
       this.refresher = setInterval(() => {
-        this.$socket.sendObj({ Kind: 'last-builds' })
+        this.$socket.sendObj({ kind: 'lastBuilds' })
       }, 5000)
     }
   },
@@ -52,7 +52,7 @@ export default {
       return `${row.Status}-row`
     },
     fetchBuilds() {
-      this.$socket.sendObj({ Kind: 'last-builds' })
+      this.$socket.sendObj({ kind: 'lastBuilds' })
     },
     statusColor(status) {
       const statusMap = {

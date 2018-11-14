@@ -10,13 +10,12 @@ import (
 )
 
 func setupRouting(m *macaron.Macaron) {
+	if config.Mode == "development" {
+		m.Any("/*", getIndex)
+	}
+
 	m.Get("/_system/alive", getAlive)
-	m.Get("/", getIndex)
-	m.Get("/builds", getDashboardBuilds)
-	m.Get("/builds/:user/:repo", getBuildsProject)
-	m.Get("/builds/:user/:repo/:id", getBuildsProjectId)
 	m.Post("/builds/:user/:repo/:id/restart", postBuildsProjectIdRestart)
-	m.Get("/projects", getProjects)
 
 	m.Post("/hooks/github", binding.Bind(GithubHook{}), postHooksGithub)
 	m.Get("/socket", sockets.JSON(Message{}, &sockets.Options{

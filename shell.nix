@@ -14,6 +14,7 @@ let
       yarn2nix
       nodejs
       dbmate
+      pgcli
       (lowPrio gotools)
       gocode
       goimports

@@ -23,6 +23,7 @@
     "at-ui-style": "^1.5.1",
     "date-fns": "^1.29.0",
     "element-theme-chalk": "^2.4.8",
+    "marked": "^0.5.1",
     "material-design-icons-iconfont": "^3.0.3",
     "moment": "^2.22.2",
     "vue": "^2.4.2",
