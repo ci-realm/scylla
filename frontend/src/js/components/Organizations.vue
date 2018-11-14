@@ -23,9 +23,9 @@ export default {
   name: 'organizations',
   created() {
     if (!this.refresher) {
-      this.$socket.sendObj({ Kind: 'organizations' })
+      this.$socket.sendObj({ kind: 'organizations' })
       this.refresher = setInterval(() => {
-        this.$socket.sendObj({ Kind: 'organizations' })
+        this.$socket.sendObj({ kind: 'organizations' })
       }, 5000)
     }
   },

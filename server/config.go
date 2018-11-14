@@ -23,6 +23,7 @@ var config struct {
 	PrepareKnownHosts bool   `arg:"--prepare-known-hosts,env:PREPARE_KNOWN_HOSTS" help:"DON'T USE OUTSIDE DOCKER"`
 	PrivateSSHKeyPath string `arg:"--private-ssh-key-path,env:PRIVATE_SSH_KEY_PATH" help:"DON'T USE OUTSIDE DOCKER"`
 	PrivateSSHKey     string `arg:"--private-ssh-key,required,env:PRIVATE_SSH_KEY" help:"Use this key to connect to"`
+	Mode              string `arg:"--mode,env:SCYLLA_MODE" help:"set to development to proxy to frontend server"`
 }
 
 func ParseConfig() {

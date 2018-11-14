@@ -1,7 +1,18 @@
 package server
 
-import macaron "gopkg.in/macaron.v1"
+import (
+	"net/http/httputil"
+	"net/url"
+
+	macaron "gopkg.in/macaron.v1"
+)
 
 func getIndex(ctx *macaron.Context) {
-	ctx.HTML(200, "index")
+	proxyTarget, err := url.Parse("http://localhost:8080")
+	if err != nil {
+		logger.Fatal(err)
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(proxyTarget)
+	proxy.ServeHTTP(ctx.Resp, ctx.Req.Request)
 }

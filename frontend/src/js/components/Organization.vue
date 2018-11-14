@@ -37,7 +37,7 @@ export default {
   name: 'builds',
   created() {
     if (!this.refresher) {
-      const msg = { Kind: 'organization-builds', Data: { orgName: this.$route.params.name } }
+      const msg = { kind: 'organizationBuilds', data: { orgName: this.$route.params.name } }
       this.$socket.sendObj(msg)
       this.refresher = setInterval(() => {
         this.$socket.sendObj(msg)
@@ -52,7 +52,7 @@ export default {
       return `${row.Status}-row`
     },
     fetchBuilds() {
-      this.$socket.sendObj({ Kind: 'last-builds' })
+      this.$socket.sendObj({ kind: 'lastBuilds' })
     },
     statusColor(status) {
       const statusMap = {

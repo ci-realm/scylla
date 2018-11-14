@@ -12,10 +12,11 @@
   <div>{{ pr.user.login }}</div>
   <div>{{ duration() }}</div>
   <timeago :datetime="createdAt()" :auto-update="10"></timeago>
-  <v-btn @click="toggleLive">
+  <v-btn color="info" @click="toggleLive">
     <v-icon v-if="live">mdi-pause</v-icon>
     <v-icon v-else>mdi-play</v-icon>
   </v-btn>
+  <v-btn color="info" @click="restart">Restart this Build</v-btn>
   <v-data-iterator
     id="console-log"
     :rows-per-page-items="rowsPerPageItems"
@@ -36,8 +37,8 @@ export default {
   created() {
     const { owner, repo, id } = this.$route.params
     const projectName = `${owner}/${repo}`
-    this.$socket.sendObj({ Kind: 'build', Data: { id, projectName } })
-    this.$socket.sendObj({ Kind: 'build-log-watch', Data: { id, projectName } })
+    this.$socket.sendObj({ kind: 'build', data: { id, projectName } })
+    this.$socket.sendObj({ kind: 'buildLogWatch', data: { id, projectName } })
   },
   updated() {
     this.scrollToEnd()
@@ -45,11 +46,15 @@ export default {
   destroyed() {
     const { owner, repo, id } = this.$route.params
     const projectName = `${owner}/${repo}`
-    this.$socket.sendObj({ Kind: 'build-log-unwatch', Data: { id, projectName } })
+    this.$socket.sendObj({ kind: 'buildLogUnwatch', data: { id, projectName } })
   },
   methods: {
     toggleLive() {
       this.live = !this.live
+    },
+    restart() {
+      const { id } = this.$route.params
+      this.$socket.sendObj({ kind: 'restart', data: { id } })
     },
     scrollToEnd() {
       if (this.live && this.$el.querySelector) {

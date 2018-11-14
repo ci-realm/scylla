@@ -52,10 +52,9 @@ func Start() {
 	m := macaron.Classic()
 	m.SetAutoHead(true)
 	m.NotFound(func(ctx *macaron.Context) {
-		ctx.HTML(404, "not_found")
+		ctx.RawData(404, []byte(`Not found`))
 	})
 	m.Use(macaron.Renderer(macaron.RenderOptions{
-		Layout:     "layout",
 		Extensions: []string{".html"},
 		Funcs:      templateFuncMap,
 	}))

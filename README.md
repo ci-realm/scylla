@@ -101,8 +101,8 @@ $ nix-shell -p vgo2nix --command 'vgo2nix'
 
 ### Must have
 
-- [ ] Resume aborted builds when server restarts
-- [ ] Handle build timeouts better
+- [x] Resume aborted builds when server restarts
+- [x] Handle build timeouts better
 - [ ] Remove old builds automatically
 - [ ] Better scheduling, right now it's limited by number of Cores
 - [ ] Option to restart builds easily

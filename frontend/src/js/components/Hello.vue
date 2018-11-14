@@ -1,13 +1,16 @@
 <template>
   <div>
-    <h2 id="nix-flavoured-continuous-integration">Nix Flavoured Continuous Integration</h2>
+    <div v-html="content"></div>
+
+    <h1 id="nix-flavoured-continuous-integration">Nix Flavoured Continuous Integration</h1>
     <p>
       Scylla is a simple CI server that solves one thing: Evaluate
       <a href="https://nixos.org/nix/">Nix</a>
       derivations and inform you and GitHub about the results.</p>
     <p>Scylla is implemented in Go, and needs nothing but Nix for building, logging, and caching.</p>
     <p>I try to keep the moving parts as reliable as possible, since at the end of the day, all we care about is that it works.</p>
-    <h3 id="what-scylla-can-do-for-you">What Scylla Can Do For You</h3>
+
+    <h2 id="what-scylla-can-do-for-you">What Scylla Can Do For You</h2>
     <ul>
       <li>Create binaries</li>
       <li>Run tests</li>
@@ -15,7 +18,7 @@
       <li>Update your GitHub PR status</li>
       <li>Serve logs of your project builds</li>
     </ul>
-    <h3 id="getting-started">Getting Started</h3>
+    <h2 id="getting-started">Getting Started</h2>
     <ol type="1">
       <li><p>Get an OAuth token</p>
         <p>Navigate to <a href="https://github.com/settings/tokens" class="uri">https://github.com/settings/tokens</a> and generate a new OAuth token. It only needs the <code>repo:status</code> permission.</p></li>
@@ -52,6 +55,8 @@
 </template>
 
 <script>
+import marked from 'marked'
+
 export default {
   name: 'hello',
   data() {
@@ -66,6 +71,7 @@ export default {
           callPackage ./. { fastTests = true; };
   };
 }`,
+      content: marked('', { sanitize: true }),
     }
   },
   methods: {
