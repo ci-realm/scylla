@@ -367,8 +367,8 @@ func (j *githubJob) writeOutputToDB(basename string, output []byte) {
 	}
 }
 
-func (j *githubJob) compactLog() {
-	compactLog(j.buildID)
+func (j *githubJob) compactLog() error {
+	return compactLog(j.buildID)
 }
 
 func (j *githubJob) status(state, description string) {
@@ -390,14 +390,22 @@ func (j *githubJob) onError(err error, msg string) {
 }
 
 func (j *githubJob) onSuccess() {
-	logger.Printf("%s: success\n", j.id())
-	j.status("success", "Evaluation of "+j.id()+" succeeded")
-	updateBuildStatus(j, "success")
+	if err := j.compactLog(); err != nil {
+		logger.Printf("%s: Failed copying to cache: %s\n", j.id(), err)
+	}
+
+	logger.Printf("%s: build success\n", j.id())
+	j.status("pending", "Evaluation of "+j.id()+" succeeded")
 
 	// TODO: also remove outputs to allow GC
 	_ = os.RemoveAll(j.sourceDir())
-	j.copyResultsToCache()
-	j.compactLog()
+	if err := j.copyResultsToCache(); err != nil {
+		logger.Printf("%s: Failed copying to cache: %s\n", j.id(), err)
+	}
+
+	logger.Printf("%s: success\n", j.id())
+	j.status("success", fmt.Sprintf("Cached results of %s", j.id()))
+	updateBuildStatus(j, "success")
 
 	// for _, nixStorePath := range j.resultNixPaths() {
 	// 	// we'll just assume those are docker containers for now
@@ -434,9 +442,13 @@ func (j *githubJob) resultNixPaths() []string {
 	return matches
 }
 
-func (j *githubJob) copyResultsToCache() {
-	copyResultsToCachix(j, config.CachixName)
-	copyResultsToNixStore(j, config.NixCopyURL)
+func (j *githubJob) copyResultsToCache() (err error) {
+	cachixErr := copyResultsToCachix(j, config.CachixName)
+	nixStoreErr := copyResultsToNixStore(j, config.NixCopyURL)
+	if cachixErr != nil {
+		return cachixErr
+	}
+	return nixStoreErr
 }
 
 func (j *githubJob) findOrCreateProjectID() (int, error) {

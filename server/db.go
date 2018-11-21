@@ -18,7 +18,7 @@ import (
 type pgxLogger struct{}
 
 func (l pgxLogger) Log(lvl pgx.LogLevel, msg string, data map[string]interface{}) {
-	pp.Println(msg, data)
+	_, _ = pp.Println(msg, data)
 }
 
 var pgxpool *pgx.ConnPool
@@ -48,23 +48,6 @@ func SetupDB() {
 	if err != nil {
 		logger.Fatalln(err)
 	}
-
-	// go streamFakeLog(1)
-}
-
-func streamFakeLog(buildID int64) {
-	conn, err := pgxpool.Acquire()
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	n := 0
-	for {
-		n++
-		forwardLogToDB(conn, buildID, fmt.Sprintf("Line %d", n))
-
-		time.Sleep(time.Second)
-	}
 }
 
 type dbProject struct {
@@ -76,15 +59,15 @@ type dbProject struct {
 }
 
 type dbBuild struct {
-	ID          int64
-	Status      string
-	CreatedAt   *pgtype.Timestamptz
-	UpdatedAt   *pgtype.Timestamptz
-	StatusAt    *pgtype.Timestamptz
-	FinishedAt  *pgtype.Timestamptz
-	Hook        GithubHook
-	ProjectName string
-	Log         []*logLine
+	ID          int64      `json:"id"`
+	Status      string     `json:"status"`
+	CreatedAt   time.Time  `json:"createdAt"`
+	UpdatedAt   time.Time  `json:"updatedAt"`
+	StatusAt    time.Time  `json:"statusAt"`
+	FinishedAt  time.Time  `json:"finishedAt"`
+	Hook        GithubHook `json:"hook"`
+	ProjectName string     `json:"projectName"`
+	Log         []*logLine `json:"log"`
 }
 
 func (b dbBuild) BranchName() string       { return b.Hook.PullRequest.Head.Ref }
@@ -94,7 +77,7 @@ func (b dbBuild) Repo() string             { return b.Hook.Repository.Name }
 func (b dbBuild) Title() string            { return b.Hook.PullRequest.Title }
 func (b dbBuild) GithubLink() string       { return b.Hook.PullRequest.HTMLURL }
 func (b dbBuild) SHA() string              { return b.Hook.PullRequest.Head.Sha }
-func (b dbBuild) BuildTime() time.Duration { return b.FinishedAt.Time.Sub(b.CreatedAt.Time) }
+func (b dbBuild) BuildTime() time.Duration { return b.FinishedAt.Sub(b.CreatedAt) }
 func (b dbBuild) CommitLink() string {
 	return b.Hook.PullRequest.Base.Repo.HTMLURL + "/commit/" + b.Hook.PullRequest.Head.Sha
 }
@@ -221,28 +204,32 @@ func findBuilds(db *pgx.Conn, orgName string) ([]dbBuild, error) {
 	}
 
 	for rows.Next() {
-		build := dbBuild{Hook: GithubHook{},
-			CreatedAt:  &pgtype.Timestamptz{},
-			UpdatedAt:  &pgtype.Timestamptz{},
-			StatusAt:   &pgtype.Timestamptz{},
-			FinishedAt: &pgtype.Timestamptz{},
-		}
+		createdAt := &pgtype.Timestamptz{}
+		updatedAt := &pgtype.Timestamptz{}
+		statusAt := &pgtype.Timestamptz{}
+		finishedAt := &pgtype.Timestamptz{}
+		build := dbBuild{Hook: GithubHook{}}
 
 		var buildData []byte
 
 		err = rows.Scan(
 			&build.ID,
 			&build.Status,
-			build.CreatedAt,
-			build.UpdatedAt,
-			build.StatusAt,
-			build.FinishedAt,
+			createdAt,
+			updatedAt,
+			statusAt,
+			finishedAt,
 			&build.ProjectName,
 			&buildData,
 		)
 		if err != nil {
 			return builds, err
 		}
+
+		build.CreatedAt = createdAt.Time
+		build.UpdatedAt = updatedAt.Time
+		build.StatusAt = statusAt.Time
+		build.FinishedAt = finishedAt.Time
 
 		err = json.NewDecoder(bytes.NewBuffer(buildData)).Decode(&build.Hook)
 		builds = append(builds, build)
@@ -256,12 +243,10 @@ func findBuilds(db *pgx.Conn, orgName string) ([]dbBuild, error) {
 
 func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (*dbBuild, error) {
 	var buildData []byte
-	build := &dbBuild{Hook: GithubHook{},
-		CreatedAt:   &pgtype.Timestamptz{},
-		UpdatedAt:   &pgtype.Timestamptz{},
-		FinishedAt:  &pgtype.Timestamptz{},
-		ProjectName: projectName,
-	}
+	createdAt := &pgtype.Timestamptz{}
+	updatedAt := &pgtype.Timestamptz{}
+	finishedAt := &pgtype.Timestamptz{}
+	build := &dbBuild{Hook: GithubHook{}, ProjectName: projectName}
 
 	logLines := &pgtype.TextArray{}
 	logTimes := &pgtype.TimestampArray{}
@@ -284,14 +269,17 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (*db
 	).Scan(
 		&build.ID,
 		&build.Status,
-		build.CreatedAt,
-		build.UpdatedAt,
-		build.FinishedAt,
+		createdAt,
+		updatedAt,
+		finishedAt,
 		&buildData,
 		logLines,
 		logTimes,
 	)
 
+	build.CreatedAt = createdAt.Time
+	build.UpdatedAt = updatedAt.Time
+	build.FinishedAt = finishedAt.Time
 	build.Log = make([]*logLine, len(logLines.Elements))
 	for n, line := range logLines.Elements {
 		build.Log[n] = &logLine{Time: logTimes.Elements[n].Time, Line: line.String}
@@ -310,70 +298,14 @@ func (d dbProject) Link() string {
 	return "/builds/" + d.Name
 }
 
-func findBuildsByProjectName(db *pgx.Conn, projectName string) ([]dbBuild, error) {
-	rows, err := db.Query(
-		`SELECT builds.id, builds.status, builds.created_at, builds.updated_at, builds.data FROM builds
-     JOIN projects on projects.id = builds.project_id
-     WHERE projects.name = $1
-     ORDER BY builds.created_at DESC LIMIT 100;`,
-		projectName,
-	)
-
-	builds := []dbBuild{}
-	for rows.Next() {
-		build := dbBuild{Hook: GithubHook{},
-			CreatedAt:   &pgtype.Timestamptz{},
-			UpdatedAt:   &pgtype.Timestamptz{},
-			ProjectName: projectName,
-		}
-		var buildData []byte
-
-		err := rows.Scan(&build.ID, &build.Status, build.CreatedAt, build.UpdatedAt, &buildData)
-		if err != nil {
-			return nil, err
-		}
-
-		err = json.NewDecoder(bytes.NewBuffer(buildData)).Decode(&build.Hook)
-		if err != nil {
-			return nil, err
-		}
-		builds = append(builds, build)
-	}
-	return builds, err
-}
-
-func findAllProjects(db *pgx.Conn, limit int) ([]dbProject, error) {
-	rows, err := db.Query(
-		`SELECT projects.id, projects.name, projects.created_at, count(distinct(builds.id)) FROM projects
-     JOIN builds ON builds.project_id = projects.id
-     GROUP BY projects.id
-     LIMIT $1;`,
-		limit,
-	)
-	if err != nil {
-		return nil, err
-	}
-
-	out := []dbProject{}
-	for rows.Next() {
-		project := dbProject{CreatedAt: &pgtype.Timestamptz{}}
-		err := rows.Scan(&project.ID, &project.Name, project.CreatedAt, &project.BuildCount)
-		if err != nil {
-			return nil, err
-		}
-		out = append(out, project)
-	}
-	return out, err
-}
-
 func updateBuildStatus(job *githubJob, status string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	tx, err := pgxpool.BeginEx(ctx, nil)
+	defer func() { cancel(); _ = tx.Rollback() }()
 	if err != nil {
 		logger.Println("Failed updating build status:", err)
 		return
 	}
-	defer func() { cancel(); _ = tx.Rollback() }()
 
 	_, err = tx.ExecEx(ctx, `SET idle_in_transaction_session_timeout TO '1000';`, nil)
 	if err != nil {

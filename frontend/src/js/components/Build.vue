@@ -69,12 +69,12 @@ export default {
       return `Ran for ${d?.humanize()}`
     },
     finishedAt() {
-      const time = this.build.FinishedAt?.Time
+      const time = this.build.FinishedAt
       if (time === undefined) { return undefined }
       return Moment(time)
     },
     createdAt() {
-      const time = this.build.CreatedAt.Time
+      const time = this.build.CreatedAt
       if (time === undefined) { return undefined }
       return Moment(time)
     },
