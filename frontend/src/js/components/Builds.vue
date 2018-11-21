@@ -74,7 +74,7 @@ export default {
     timeDiff(from, to) {
       // TODO: check when `to` is not there.
       if (to === undefined) { return 'pending' }
-      return Moment.duration(Moment(from.Time).diff(Moment(to.Time)))
+      return Moment.duration(Moment(from).diff(Moment(to)))
     },
     linkToBuild(build) {
       const { repo } = build.Hook.pull_request.head
@@ -98,7 +98,7 @@ export default {
 
         return {
           value: false,
-          time: build.CreatedAt.Time,
+          time: build.CreatedAt,
           project: build.ProjectName,
           owner: pr.head.repo.owner.login,
           ownerLink: pr.head.repo.owner.html_url,
