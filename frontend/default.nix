@@ -25,6 +25,7 @@ let
     ];
     packageJson = ./package.json;
     yarnLock = ./yarn.lock;
+    yarnNix = ./yarn.nix;
     publishBinsFor = [
       "cross-env"
       "webpack"
