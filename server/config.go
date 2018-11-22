@@ -60,14 +60,21 @@ func ParseConfig() {
 	}
 
 	if strings.HasPrefix(config.GithubUser, "/") {
-		if content, err := ioutil.ReadFile(config.GithubUser); err != nil {
-			config.GithubUser = string(content)
+		logger.Printf("Loading github user from file %s\n", config.GithubUser)
+		content, err := ioutil.ReadFile(config.GithubUser)
+		if err != nil {
+			logger.Fatal(err)
 		}
+
+		config.GithubUser = string(content)
 	}
 
 	if strings.HasPrefix(config.GithubToken, "/") {
-		if content, err := ioutil.ReadFile(config.GithubToken); err != nil {
-			config.GithubToken = string(content)
+		logger.Printf("Loading github token from file %s\n", config.GithubToken)
+		content, err := ioutil.ReadFile(config.GithubToken)
+		if err != nil {
+			logger.Fatal(err)
 		}
+		config.GithubToken = string(content)
 	}
 }
