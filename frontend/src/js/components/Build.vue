@@ -1,5 +1,5 @@
 <template>
-<div v-if="build.Status">
+<div v-if="build.status">
   <h1>{{ $route.params.owner }} / {{ $route.params.repo }}</h1>
   <h2>Build {{ $route.params.id }}</h2>
   <div>
@@ -69,12 +69,12 @@ export default {
       return `Ran for ${d?.humanize()}`
     },
     finishedAt() {
-      const time = this.build.FinishedAt
+      const time = this.build.finishedAt
       if (time === undefined) { return undefined }
       return Moment(time)
     },
     createdAt() {
-      const time = this.build.CreatedAt
+      const time = this.build.createdAt
       if (time === undefined) { return undefined }
       return Moment(time)
     },
@@ -87,7 +87,7 @@ export default {
       return this.$store.state.socket.build
     },
     oldLines() {
-      return this.$store.state.socket.build.Log.Elements.map(line => (
+      return this.$store.state.socket.build.log.Elements.map(line => (
         line
       )).join('\n')
     },
@@ -95,7 +95,7 @@ export default {
       return this.$store.state.socket.build_lines
     },
     pr() {
-      return this.build.Hook.pull_request
+      return this.build.hook.pull_request
     },
     filteredLines() {
       return this.$store.state.socket.build_lines

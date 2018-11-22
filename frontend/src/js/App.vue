@@ -40,6 +40,7 @@
               color="teal"
               indeterminate
             ></v-progress-circular>
+            Connecting to server...
           </v-flex>
         </v-layout>
       </v-container>

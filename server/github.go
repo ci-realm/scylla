@@ -507,10 +507,21 @@ func setGithubStatus(targetURL, statusURL, state, description string) {
 
 	req.SetBasicAuth(config.GithubUser, config.GithubToken)
 
-	_, err = http.DefaultClient.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		logger.Printf("Error while calling Github API: %s\n", err)
 	}
+
+	if res.StatusCode == 200 {
+		return
+	}
+
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		logger.Printf("Failed setting status, received HTTP status %d but failed reading body\n", res.StatusCode)
+	}
+
+	logger.Printf("Failed setting status, received HTTP status %d with body:\n%s\n", res.StatusCode, string(resBody))
 }
 
 func cleanJoin(parts ...string) string {
