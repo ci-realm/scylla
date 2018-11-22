@@ -51,11 +51,11 @@ func SetupDB() {
 }
 
 type dbProject struct {
-	ID         int64
-	CreatedAt  *pgtype.Timestamptz
-	UpdatedAt  *pgtype.Timestamptz
-	Name       string
-	BuildCount int
+	ID         int64     `json:"id"`
+	CreatedAt  time.Time `json:"createdAt"`
+	UpdatedAt  time.Time `json:"updatedAt"`
+	Name       string    `json:"name"`
+	BuildCount int       `json:"buildCount"`
 }
 
 type dbBuild struct {
@@ -125,9 +125,9 @@ func findBuildByID(db *pgx.Conn, buildID int) (*githubJob, error) {
 }
 
 type dbOrg struct {
-	Owner      string
-	URL        string
-	BuildCount int64
+	Owner      string `json:"owner"`
+	URL        string `json:"url"`
+	BuildCount int64  `json:"buildCount"`
 }
 
 func findOrganizations(db *pgx.Conn) ([]dbOrg, error) {
