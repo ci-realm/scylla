@@ -23,7 +23,7 @@
         <timeago :datetime="props.item.time" :auto-update="10"></timeago>
       </td>
       <td>
-        {{ props.item.duration.humanize() }}
+        {{ props.item.duration }}
       </td>
     </template>
   </v-data-table>
@@ -72,13 +72,12 @@ export default {
       return sha.substr(0, 7)
     },
     timeDiff(from, to) {
-      // TODO: check when `to` is not there.
-      if (to === undefined) { return 'pending' }
-      return Moment.duration(Moment(from).diff(Moment(to)))
+      if (to === '0001-01-01T00:00:00Z') { return 'pending' }
+      return Moment.duration(Moment(to).diff(Moment(from))).humanize()
     },
     linkToBuild(build) {
-      const { repo } = build.Hook.pull_request.head
-      return `/builds/${repo.owner.login}/${repo.name}/${build.ID}`
+      const { repo } = build.hook.pull_request.head
+      return `/builds/${repo.owner.login}/${repo.name}/${build.id}`
     },
   },
   computed: {
@@ -94,23 +93,23 @@ export default {
     },
     buildData() {
       return this.$store.state.socket.lastBuilds.map((build) => {
-        const pr = build.Hook.pull_request
+        const pr = build.hook.pull_request
 
         return {
           value: false,
-          time: build.CreatedAt,
-          project: build.ProjectName,
+          time: build.createdAt,
+          project: build.projectName,
           owner: pr.head.repo.owner.login,
           ownerLink: pr.head.repo.owner.html_url,
           repo: pr.head.repo.name,
           repoLink: pr.head.repo.html_url,
-          status: build.Status,
+          status: build.status,
           sha: this.shortSHA(pr.head.sha),
           shaLink: `${pr.base.repo.html_url}/commit/${pr.head.sha}`,
-          duration: this.timeDiff(build.FinishedAt, build.CreatedAt),
+          duration: this.timeDiff(build.createdAt, build.finishedAt),
           prLink: pr.html_url,
           buildLink: this.linkToBuild(build),
-          id: build.ID,
+          id: build.id,
         }
       })
     },
