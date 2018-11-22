@@ -57,7 +57,7 @@ export default new Vuex.Store({
     },
     build(state, message) {
       state.socket.build = message.data.build
-      state.socket.build_lines = message.data.build.Log.map((log) => {
+      state.socket.build_lines = message.data.build.log.map((log) => {
         const time = Moment(log.created_at).format('HH:mm:ss:SS')
         return { time, line: log.line }
       })

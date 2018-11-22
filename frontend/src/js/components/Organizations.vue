@@ -49,10 +49,10 @@ export default {
     orgData() {
       return this.$store.state.socket.organizations.map(org => ({
         value: false,
-        owner: org.Owner,
-        url: org.URL,
-        buildCount: org.BuildCount,
-        orgLink: `/organizations/${org.Owner}`,
+        owner: org.owner,
+        url: org.url,
+        buildCount: org.buildCount,
+        orgLink: `/organizations/${org.owner}`,
       }))
     },
   },
