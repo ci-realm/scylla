@@ -12,7 +12,6 @@ rec {
   scylla-bin = buildGoPackage rec {
     name = "scylla-unstable-${version}";
     version = "2018-07-23";
-    rev = "277ad49d97dd0861b889ee7a0d8922f4549affe4";
 
     goPackagePath = "github.com/manveru/scylla";
 

@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/pgtype"
 	"github.com/k0kubun/pp"
 	_ "github.com/lib/pq"
+	"gopkg.in/go-playground/webhooks.v5/github"
 )
 
 type pgxLogger struct{}
@@ -59,15 +60,15 @@ type dbProject struct {
 }
 
 type dbBuild struct {
-	ID          int64      `json:"id"`
-	Status      string     `json:"status"`
-	CreatedAt   time.Time  `json:"createdAt"`
-	UpdatedAt   time.Time  `json:"updatedAt"`
-	StatusAt    time.Time  `json:"statusAt"`
-	FinishedAt  time.Time  `json:"finishedAt"`
-	Hook        GithubHook `json:"hook"`
-	ProjectName string     `json:"projectName"`
-	Log         []*logLine `json:"log"`
+	ID          int64                      `json:"id"`
+	Status      string                     `json:"status"`
+	CreatedAt   time.Time                  `json:"createdAt"`
+	UpdatedAt   time.Time                  `json:"updatedAt"`
+	StatusAt    time.Time                  `json:"statusAt"`
+	FinishedAt  time.Time                  `json:"finishedAt"`
+	Hook        *github.PullRequestPayload `json:"hook"`
+	ProjectName string                     `json:"projectName"`
+	Log         []*logLine                 `json:"log"`
 }
 
 func (b dbBuild) BranchName() string       { return b.Hook.PullRequest.Head.Ref }
@@ -116,7 +117,7 @@ func findBuildByID(db *pgx.Conn, buildID int) (*githubJob, error) {
 		return nil, err
 	}
 
-	hook := &GithubHook{}
+	hook := &github.PullRequestPayload{}
 	err = json.NewDecoder(bytes.NewBuffer(rawData)).Decode(hook)
 	if err != nil {
 		return nil, err
@@ -208,7 +209,7 @@ func findBuilds(db *pgx.Conn, orgName string) ([]dbBuild, error) {
 		updatedAt := &pgtype.Timestamptz{}
 		statusAt := &pgtype.Timestamptz{}
 		finishedAt := &pgtype.Timestamptz{}
-		build := dbBuild{Hook: GithubHook{}}
+		build := dbBuild{Hook: &github.PullRequestPayload{}}
 
 		var buildData []byte
 
@@ -246,7 +247,7 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (*db
 	createdAt := &pgtype.Timestamptz{}
 	updatedAt := &pgtype.Timestamptz{}
 	finishedAt := &pgtype.Timestamptz{}
-	build := &dbBuild{Hook: GithubHook{}, ProjectName: projectName}
+	build := &dbBuild{Hook: &github.PullRequestPayload{}, ProjectName: projectName}
 
 	logLines := &pgtype.TextArray{}
 	logTimes := &pgtype.TimestampArray{}
