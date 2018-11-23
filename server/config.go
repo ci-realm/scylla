@@ -40,8 +40,7 @@ func ParseConfig() {
 
 	err = parser.Parse(os.Args[1:])
 	if err != nil { // needed for goconvey
-		if strings.HasPrefix(err.Error(), "unknown argument -test.v") ||
-			strings.HasPrefix(err.Error(), "unknown argument -test.coverprofile") {
+		if strings.HasPrefix(err.Error(), "unknown argument -test.") {
 			return
 		}
 

@@ -21,24 +21,43 @@ import (
 	"sync"
 	"time"
 
-	macaron "gopkg.in/macaron.v1"
-
 	"github.com/jackc/pgx"
+	"github.com/k0kubun/pp"
 	"github.com/manveru/scylla/queue"
+	"gopkg.in/go-playground/webhooks.v5/github"
+	macaron "gopkg.in/macaron.v1"
 )
 
 type githubJob struct {
-	Hook    *GithubHook
+	Hook    *github.PullRequestPayload
 	Host    string
 	buildID int
 	conn    *pgx.Conn
 }
 
-func postHooksGithub(ctx *macaron.Context, hook GithubHook) {
-	if ctx.Req.Header.Get("X-Github-Event") == "pull_request" && hook.Action != "closed" {
-		if err := enqueueGithub(&hook, progressHost(ctx)); err != nil {
-			ctx.JSON(500, map[string]string{"status": "ERROR", "error": err.Error()})
-			return
+func postHooksGithub(ctx *macaron.Context) {
+	hook, err := github.New()
+	if err != nil {
+	}
+
+	payload, err := hook.Parse(ctx.Req.Request, github.PullRequestEvent)
+	if err != nil {
+		if err == github.ErrEventNotFound {
+			logger.Printf("Wrong event received: %s\n", err)
+		} else {
+			logger.Printf("Error while parsing Github hook: %s\n", err)
+		}
+	}
+	pp.Println(payload)
+
+	switch p := payload.(type) {
+	case github.PullRequestPayload:
+		if p.Action != "closed" {
+			pp.Println(p)
+			if err := enqueueGithub(&p, progressHost(ctx)); err != nil {
+				ctx.JSON(500, map[string]string{"status": "ERROR", "error": err.Error()})
+				return
+			}
 		}
 
 		ctx.JSON(200, map[string]string{"status": "OK"})
@@ -48,7 +67,7 @@ func postHooksGithub(ctx *macaron.Context, hook GithubHook) {
 	ctx.JSON(200, map[string]string{"status": "IGNORED"})
 }
 
-func enqueueGithub(hook *GithubHook, host string) error {
+func enqueueGithub(hook *github.PullRequestPayload, host string) error {
 	conn, err := pgxpool.Acquire()
 	if err != nil {
 		logger.Fatalln(err)

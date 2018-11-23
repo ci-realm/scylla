@@ -3,7 +3,6 @@ package server
 import (
 	"time"
 
-	"github.com/go-macaron/binding"
 	"github.com/go-macaron/sockets"
 	"github.com/jackc/pgx"
 	macaron "gopkg.in/macaron.v1"
@@ -17,7 +16,7 @@ func setupRouting(m *macaron.Macaron) {
 	m.Get("/_system/alive", getAlive)
 	m.Post("/builds/:user/:repo/:id/restart", postBuildsProjectIdRestart)
 
-	m.Post("/hooks/github", binding.Bind(GithubHook{}), postHooksGithub)
+	m.Post("/hooks/github", postHooksGithub)
 	m.Get("/socket", sockets.JSON(Message{}, &sockets.Options{
 		Logger:            logger,
 		LogLevel:          sockets.LogLevelWarning,
