@@ -321,8 +321,6 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, error) {
 		append([]string{
 			subcmd,
 			"--show-trace",
-			"--builders", config.Builders,
-			"--max-jobs", "0", // force remote builds
 			"-I", "./nix",
 			"-I", j.sourceDir(),
 			"--argstr", "pname", j.pname(),
