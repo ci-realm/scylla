@@ -25,7 +25,6 @@ import (
 	"github.com/k0kubun/pp"
 	"github.com/manveru/scylla/queue"
 	"gopkg.in/go-playground/webhooks.v5/github"
-	macaron "gopkg.in/macaron.v1"
 )
 
 type githubJob struct {
@@ -35,12 +34,12 @@ type githubJob struct {
 	conn    *pgx.Conn
 }
 
-func postHooksGithub(ctx *macaron.Context) {
+func postHooksGithub(w http.ResponseWriter, r *http.Request) {
 	hook, err := github.New()
 	if err != nil {
 	}
 
-	payload, err := hook.Parse(ctx.Req.Request, github.PullRequestEvent)
+	payload, err := hook.Parse(r, github.PullRequestEvent)
 	if err != nil {
 		if err == github.ErrEventNotFound {
 			logger.Printf("Wrong event received: %s\n", err)
@@ -54,17 +53,31 @@ func postHooksGithub(ctx *macaron.Context) {
 	case github.PullRequestPayload:
 		if p.Action != "closed" {
 			pp.Println(p)
-			if err := enqueueGithub(&p, progressHost(ctx)); err != nil {
-				ctx.JSON(500, map[string]string{"status": "ERROR", "error": err.Error()})
+			if err := enqueueGithub(&p, progressHost(r)); err != nil {
+				writeJSON(w, 500, map[string]string{"status": "ERROR", "error": err.Error()})
 				return
 			}
 		}
 
-		ctx.JSON(200, map[string]string{"status": "OK"})
+		writeJSON(w, 200, map[string]string{"status": "OK"})
 		return
 	}
 
-	ctx.JSON(200, map[string]string{"status": "IGNORED"})
+	writeJSON(w, 200, map[string]string{"status": "IGNORED"})
+}
+
+func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	buf := &bytes.Buffer{}
+	err := json.NewEncoder(buf).Encode(payload)
+	if err != nil {
+		logger.Println(err)
+	}
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		logger.Println(err)
+	}
 }
 
 func enqueueGithub(hook *github.PullRequestPayload, host string) error {
@@ -531,7 +544,7 @@ func setGithubStatus(targetURL, statusURL, state, description string) {
 		logger.Printf("Error while calling Github API: %s\n", err)
 	}
 
-	if res.StatusCode == 200 {
+	if res.StatusCode < 300 {
 		return
 	}
 
@@ -547,12 +560,12 @@ func cleanJoin(parts ...string) string {
 	return filepath.Clean(filepath.Join(parts...))
 }
 
-func progressHost(ctx *macaron.Context) string {
-	proto := ctx.Req.Header.Get("X-Forwarded-Proto")
+func progressHost(r *http.Request) string {
+	proto := r.Header.Get("X-Forwarded-Proto")
 	if proto == "" {
 		proto = "http"
 	}
-	return fmt.Sprintf("%s://%s", proto, ctx.Req.Host)
+	return fmt.Sprintf("%s://%s", proto, r.Host)
 }
 
 func githubAuthKey(givenURL, token string) string {

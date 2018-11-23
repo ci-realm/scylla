@@ -77,8 +77,8 @@ export default {
       return Moment.duration(Moment(from).diff(Moment(to)))
     },
     linkToBuild(build) {
-      const { repo } = build.Hook.pull_request.head
-      return `/builds/${repo.owner.login}/${repo.name}/${build.ID}`
+      const { repo } = build.hook.pull_request.head
+      return `/builds/${repo.owner.login}/${repo.name}/${build.id}`
     },
   },
   computed: {
@@ -94,12 +94,12 @@ export default {
     },
     buildData() {
       return this.$store.state.socket.organizationBuilds.map((build) => {
-        const pr = build.Hook.pull_request
+        const pr = build.hook.pull_request
 
         return {
           value: false,
-          time: build.CreatedAt,
-          project: build.ProjectName,
+          time: build.createdAt,
+          project: build.projectName,
           owner: pr.head.repo.owner.login,
           ownerLink: pr.head.repo.owner.html_url,
           repo: pr.head.repo.name,
@@ -107,10 +107,10 @@ export default {
           status: build.Status,
           sha: this.shortSHA(pr.head.sha),
           shaLink: `${pr.base.repo.html_url}/commit/${pr.head.sha}`,
-          duration: this.timeDiff(build.FinishedAt, build.CreatedAt),
+          duration: this.timeDiff(build.finishedAt, build.createdAt),
           prLink: pr.html_url,
           buildLink: this.linkToBuild(build),
-          id: build.ID,
+          id: build.id,
         }
       })
     },

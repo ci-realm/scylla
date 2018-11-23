@@ -1,28 +1,43 @@
 package server
 
 import (
+	"net/http"
+	"strconv"
+
+	"github.com/gorilla/mux"
 	"github.com/jackc/pgx"
 	"github.com/manveru/scylla/queue"
-	macaron "gopkg.in/macaron.v1"
 )
 
-func postBuildsProjectIdRestart(ctx *macaron.Context) {
-	projectName := ctx.Params("user") + "/" + ctx.Params("repo")
-	buildID := ctx.ParamsInt("id")
+func postBuildsProjectIdRestart(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	buildID, err := strconv.ParseInt(vars["id"], 10, 64)
+	if err != nil {
+		w.WriteHeader(400)
+		w.Write([]byte(`Invalid project id, must be integer`))
+		return
+	}
 
-	withConn(ctx, func(conn *pgx.Conn) error {
-		build, err := findBuildByProjectAndID(conn, projectName, buildID)
+	err = withConn(func(conn *pgx.Conn) error {
+		build, err := findFullBuildByID(conn, buildID)
 		if err != nil {
 			return err
 		}
 
-		item := &queue.Item{Args: map[string]interface{}{"build_id": buildID, "Host": progressHost(ctx)}}
+		item := &queue.Item{Args: map[string]interface{}{"build_id": buildID, "Host": progressHost(r)}}
 		err = jobQueue.Insert(item)
 		if err != nil {
 			return err
 		}
 
-		ctx.Redirect(build.BuildLink(), 302)
+		w.Header().Set("Location", build.BuildLink())
+		w.WriteHeader(302)
 		return nil
 	})
+
+	if err != nil {
+		logger.Println(err)
+		w.WriteHeader(500)
+		w.Write([]byte(err.Error()))
+	}
 }
