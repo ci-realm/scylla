@@ -20,7 +20,6 @@ require (
 	github.com/lib/pq v1.0.0
 	github.com/mattn/go-colorable v0.0.9 // indirect
 	github.com/mattn/go-isatty v0.0.4 // indirect
-	github.com/nsf/gocode v0.0.0-20181120081338-6cac7c69a41e // indirect
 	github.com/pkg/errors v0.8.0 // indirect
 	github.com/rgzr/sshtun v0.0.0-20180926071833-a32b71083b00
 	github.com/satori/go.uuid v1.2.0 // indirect
