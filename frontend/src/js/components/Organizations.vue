@@ -34,8 +34,8 @@ export default {
   },
   methods: {
     linkToBuild(build) {
-      const { repo } = build.Hook.pull_request.head
-      return `/builds/${repo.owner.login}/${repo.name}/${build.ID}`
+      const { repo } = build.hook.pull_request.head
+      return `/builds/${repo.owner.login}/${repo.name}/${build.id}`
     },
   },
   computed: {

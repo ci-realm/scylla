@@ -1,183 +1,112 @@
 package server
 
 import (
-	"fmt"
-	"strconv"
+	"log"
+	"net/http"
 
+	"github.com/gorilla/websocket"
 	"github.com/manveru/scylla/queue"
-	macaron "gopkg.in/macaron.v1"
 )
 
-func handleWebSocket(ctx *macaron.Context, receiver <-chan *Message, sender chan<- *Message, done <-chan bool, disconnect chan<- int, errorChannel <-chan error) {
-	socket := &webSocket{
-		ctx:          ctx,
-		receiver:     receiver,
-		sender:       sender,
-		done:         done,
-		disconnect:   disconnect,
-		errorChannel: errorChannel,
-	}
-
+func handleWebSocket(r *http.Request, conn *websocket.Conn) {
+	socket := &webSocket{conn: conn, host: progressHost(r)}
 	socket.mainLoop()
 }
 
-// Message encapsulates data sent and received via the websocket.
-type Message struct {
-	Kind     string `json:"kind,omitempty"`
-	Mutation string `json:"mutation,omitempty"`
-	Data     data   `json:"data"`
-}
-
-type data map[string]interface{}
-
-func (d data) getString(key string) (string, error) {
-	value, ok := d[key].(string)
-	if ok {
-		return value, nil
-	}
-	return value, fmt.Errorf("Coudln't find key '%s' in Data %v", key, d)
-}
-
-func (d data) getInt64(key string) (int64, error) {
-	found, ok := d[key]
-	if !ok {
-		return 0, fmt.Errorf("Couldn't find key '%s' in Data %v", key, d)
-	}
-
-	value, ok := found.(string)
-	if !ok {
-		return 0, fmt.Errorf("Couldn't transform value of key %s: '%#v' into int", key, found)
-	}
-
-	parsed, err := strconv.ParseInt(value, 10, 64)
-
-	return parsed, err
-}
-
 type webSocket struct {
-	ctx          *macaron.Context
-	receiver     <-chan *Message
-	sender       chan<- *Message
-	done         <-chan bool
-	disconnect   chan<- int
-	errorChannel <-chan error
-
+	conn     *websocket.Conn
+	host     string
 	listener *logListener
 }
 
 func (s *webSocket) mainLoop() {
 	for {
-		select {
-		case msg := <-s.receiver:
-			logger.Println(msg.Kind)
-
-			switch msg.Kind {
-			case "restart":
-				s.restartBuild(msg.Data)
-			case "lastBuilds":
-				s.getLastBuilds(msg.Data)
-			case "organizations":
-				s.getOrganizations(msg.Data)
-			case "organizationBuilds":
-				s.getOrganizationBuilds(msg.Data)
-			case "build":
-				s.getBuild(msg.Data)
-			case "buildLogWatch":
-				s.getBuildLogWatch(msg.Data)
-			case "buildLogUnwatch":
-				s.getBuildLogUnwatch(msg.Data)
-			}
-		case <-s.done:
+		msg := &Message{}
+		err := s.conn.ReadJSON(msg)
+		if err != nil {
+			log.Println(err)
 			return
-		case err := <-s.errorChannel:
-			logger.Println(err)
+		}
+
+		logger.Println(msg.Kind)
+
+		switch msg.Kind {
+		case "restart":
+			s.restartBuild(msg.Data)
+		case "lastBuilds":
+			s.getLastBuilds(msg.Data)
+		case "organizations":
+			s.getOrganizations(msg.Data)
+		case "organizationBuilds":
+			s.getOrganizationBuilds(msg.Data)
+		case "build":
+			s.getBuild(msg.Data)
+		case "buildLogWatch":
+			s.getBuildLogWatch(msg.Data)
+		case "buildLogUnwatch":
+			s.getBuildLogUnwatch(msg.Data)
 		}
 	}
 }
 
-func (s *webSocket) getOrganizations(data map[string]interface{}) {
-	s.sender <- &Message{
-		Mutation: "organizations",
-		Data:     map[string]interface{}{"organizations": wsOrganizations()},
+func (s *webSocket) writeData(mutation string, data msgData) {
+	if err := s.conn.WriteJSON(&Message{
+		Mutation: mutation,
+		Data:     data,
+	}); err != nil {
+		logger.Println(err)
 	}
 }
 
-func (s *webSocket) getOrganizationBuilds(data map[string]interface{}) {
-	orgName, ok := data["orgName"].(string)
-	if !ok {
-		logger.Println("missing orgName")
+func (s *webSocket) getOrganizations(data msgData) {
+	s.writeData("organizations", msgData{
+		"organizations": wsOrganizations(),
+	})
+}
+
+func (s *webSocket) getOrganizationBuilds(data msgData) {
+	orgName, err := data.getString("orgName")
+	if err != nil {
+		logger.Println(err)
 		return
 	}
 
-	s.sender <- &Message{
-		Mutation: "organizationBuilds",
-		Data:     map[string]interface{}{"organizationBuilds": wsLatestBuildsForOrg(orgName)},
-	}
+	s.writeData("organizationBuilds", msgData{
+		"organizationBuilds": wsLatestBuildsForOrg(orgName),
+	})
 }
 
-func (s *webSocket) restartBuild(d data) {
+func (s *webSocket) restartBuild(d msgData) {
 	buildID, err := d.getInt64("id")
 	if err != nil {
 		logger.Println(err)
 	}
-	item := &queue.Item{Args: map[string]interface{}{"build_id": buildID, "Host": progressHost(s.ctx)}}
+	item := &queue.Item{Args: msgData{"build_id": buildID, "Host": s.host}}
 	err = jobQueue.Insert(item)
 	if err != nil {
 		logger.Println(err)
 	}
 }
 
-func (s *webSocket) getLastBuilds(_ data) {
-	s.sender <- &Message{
-		Mutation: "lastBuilds",
-		Data:     map[string]interface{}{"builds": wsLatestBuilds()},
-	}
+func (s *webSocket) getLastBuilds(_ msgData) {
+	s.writeData("lastBuilds", msgData{"builds": wsLatestBuilds()})
 }
 
-func dataID(data data) (id int64, err error) {
-	strID, err := data.getString("id")
-	if err != nil {
-		logger.Println(err)
-		return
-	}
-
-	id, err = strconv.ParseInt(strID, 10, 64)
-	if err != nil {
-		logger.Println("parsing id", err)
-	}
-
-	return
-}
-
-func (s *webSocket) getBuild(data map[string]interface{}) {
-	strID, ok := data["id"].(string)
-	if !ok {
-		logger.Println("missing id")
-		return
-	}
-
-	id, err := strconv.Atoi(strID)
+func (s *webSocket) getBuild(data msgData) {
+	id, err := data.getID()
 	if err != nil {
 		logger.Println("parsing id", err)
 		return
 	}
 
-	projectName, ok := data["projectName"].(string)
-	if !ok {
-		logger.Println("missing projectName")
-		return
-	}
-	build := wsBuild(projectName, id)
+	build := wsBuild(id)
 	if build != nil {
-		s.sender <- &Message{
-			Mutation: "build",
-			Data:     map[string]interface{}{"build": build},
-		}
+		s.writeData("build", msgData{"build": build})
 	}
 }
 
-func (s *webSocket) getBuildLogWatch(data map[string]interface{}) {
-	id, err := dataID(data)
+func (s *webSocket) getBuildLogWatch(data msgData) {
+	id, err := data.getID()
 	if err != nil {
 		return
 	}
@@ -196,17 +125,15 @@ func (s *webSocket) getBuildLogWatch(data map[string]interface{}) {
 
 	go func() {
 		for line := range recv {
-			s.sender <- &Message{
-				Mutation: "buildLog",
-				Data: map[string]interface{}{
-					"time": line.Time,
-					"line": line.Line,
-				}}
+			s.writeData("buildLog", msgData{
+				"time": line.Time,
+				"line": line.Line,
+			})
 		}
 	}()
 }
 
-func (s *webSocket) getBuildLogUnwatch(data map[string]interface{}) {
+func (s *webSocket) getBuildLogUnwatch(data msgData) {
 	if s.listener != nil {
 		logger.Println("Unregister from build log")
 		logListenerUnregister <- s.listener
@@ -264,7 +191,7 @@ func wsLatestBuildsForOrg(orgName string) (builds []dbBuild) {
 	return
 }
 
-func wsBuild(projectName string, buildID int) (build *dbBuild) {
+func wsBuild(buildID int64) (build *dbBuild) {
 	conn, err := pgxpool.Acquire()
 	if err != nil {
 		logger.Panic(err)
@@ -272,9 +199,9 @@ func wsBuild(projectName string, buildID int) (build *dbBuild) {
 	}
 	defer pgxpool.Release(conn)
 
-	build, err = findBuildByProjectAndID(conn, projectName, buildID)
+	build, err = findFullBuildByID(conn, buildID)
 	if err != nil {
-		logger.Println(projectName, buildID, err)
+		logger.Println(buildID, err)
 	}
 
 	return

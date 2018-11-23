@@ -1,7 +1,7 @@
 package server
 
-import macaron "gopkg.in/macaron.v1"
+import "net/http"
 
-func getAlive(ctx *macaron.Context) {
-	ctx.RawData(200, []byte("ALIVE"))
+func getAlive(w http.ResponseWriter, r *http.Request) {
+	w.Write([]byte("ALIVE"))
 }

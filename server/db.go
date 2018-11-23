@@ -242,15 +242,16 @@ func findBuilds(db *pgx.Conn, orgName string) ([]dbBuild, error) {
 	return builds, nil
 }
 
-func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (*dbBuild, error) {
+func findFullBuildByID(db *pgx.Conn, buildID int64) (*dbBuild, error) {
 	var buildData []byte
 	createdAt := &pgtype.Timestamptz{}
 	updatedAt := &pgtype.Timestamptz{}
 	finishedAt := &pgtype.Timestamptz{}
-	build := &dbBuild{Hook: &github.PullRequestPayload{}, ProjectName: projectName}
+	build := &dbBuild{Hook: &github.PullRequestPayload{}}
 
 	logLines := &pgtype.TextArray{}
 	logTimes := &pgtype.TimestampArray{}
+	logContent := pgtype.Text{}
 
 	err := db.QueryRow(
 		`SELECT
@@ -261,11 +262,15 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (*db
        builds.finished_at,
        builds.data,
        array_agg(loglines.line order by loglines.id),
-       array_agg(loglines.created_at order by loglines.id)
+       array_agg(loglines.created_at order by loglines.id),
+       (SELECT content FROM logs WHERE logs.build_id = $1),
+       projects.name
      FROM builds
+     JOIN projects ON projects.id = builds.project_id
      LEFT OUTER JOIN loglines ON loglines.build_id = builds.id
+     LEFT OUTER JOIN logs ON logs.build_id = builds.project_id
      WHERE builds.id = $1
-     GROUP BY builds.id;`,
+     GROUP BY projects.id, builds.id;`,
 		buildID,
 	).Scan(
 		&build.ID,
@@ -276,15 +281,28 @@ func findBuildByProjectAndID(db *pgx.Conn, projectName string, buildID int) (*db
 		&buildData,
 		logLines,
 		logTimes,
+		&logContent,
+		&build.ProjectName,
 	)
 
 	build.CreatedAt = createdAt.Time
 	build.UpdatedAt = updatedAt.Time
 	build.FinishedAt = finishedAt.Time
-	build.Log = make([]*logLine, len(logLines.Elements))
-	for n, line := range logLines.Elements {
-		build.Log[n] = &logLine{Time: logTimes.Elements[n].Time, Line: line.String}
+
+	if len(logLines.Elements) > 0 {
+		build.Log = make([]*logLine, len(logLines.Elements))
+		for n, line := range logLines.Elements {
+			build.Log[n] = &logLine{Time: logTimes.Elements[n].Time, Line: line.String}
+		}
 	}
+
+	if logContent.String != "" {
+		build.Log = []*logLine{}
+		for _, line := range strings.Split(logContent.String, "\n") {
+			build.Log = append(build.Log , &logLine{Line: line})
+		}
+	}
+
 	// "("2018-10-14 12:21:23.827167+00","Line 46")"
 
 	if err != nil {

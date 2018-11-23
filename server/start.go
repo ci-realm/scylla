@@ -1,15 +1,18 @@
 package server
 
 import (
+	"fmt"
 	"html/template"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
 
-	macaron "gopkg.in/macaron.v1"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/handlers"
 )
 
 var templateFuncMap = []template.FuncMap{{
@@ -49,18 +52,21 @@ func Start() {
 
 	go startLogDistributor(pgxpool)
 
-	m := macaron.Classic()
-	m.SetAutoHead(true)
-	m.NotFound(func(ctx *macaron.Context) {
-		ctx.RawData(404, []byte(`Not found`))
-	})
-	m.Use(macaron.Renderer(macaron.RenderOptions{
-		Extensions: []string{".html"},
-		Funcs:      templateFuncMap,
-	}))
+	r := mux.NewRouter()
+	setupRouting(r)
 
-	setupRouting(m)
-	m.Run(config.Host, config.Port)
+	recovery := handlers.RecoveryHandler(
+    handlers.PrintRecoveryStack(true),
+    handlers.RecoveryLogger(logger),
+  )
+
+	srv := &http.Server{
+		Handler:      handlers.CombinedLoggingHandler(os.Stderr, recovery(r)),
+		Addr:         fmt.Sprintf("%s:%d", config.Host, config.Port),
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+	logger.Fatal(srv.ListenAndServe())
 }
 
 // ssh-keyscan <host> >> ~/.ssh/known_hosts
