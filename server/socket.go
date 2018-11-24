@@ -86,6 +86,7 @@ func (s *webSocket) restartBuild(d msgData) {
 	if err != nil {
 		logger.Println(err)
 	}
+	s.writeData("restart", msgData{})
 }
 
 func (s *webSocket) getLastBuilds(_ msgData) {
