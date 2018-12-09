@@ -1,48 +1,58 @@
 package server
 
 import (
-	"time"
+	"net/http"
 
-	"github.com/go-macaron/binding"
-	"github.com/go-macaron/sockets"
+	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"github.com/jackc/pgx"
-	macaron "gopkg.in/macaron.v1"
 )
 
-func setupRouting(m *macaron.Macaron) {
-	m.Get("/_system/alive", getAlive)
-	m.Get("/", getIndex)
-	m.Get("/builds", getDashboardBuilds)
-	m.Get("/builds/:user/:repo", getBuildsProject)
-	m.Get("/builds/:user/:repo/:id", getBuildsProjectId)
-	m.Post("/builds/:user/:repo/:id/restart", postBuildsProjectIdRestart)
-	m.Get("/projects", getProjects)
+func setupRouting(r *mux.Router) {
+	r.HandleFunc("/_system/alive", getAlive).Methods("GET")
+	r.HandleFunc("/builds/{id}/restart", postBuildsProjectIdRestart).Methods("GET")
+	r.HandleFunc("/hooks/github", postHooksGithub).Methods("POST")
+	r.HandleFunc("/socket", upgradeWebSocket).Methods("GET")
 
-	m.Post("/hooks/github", binding.Bind(GithubHook{}), postHooksGithub)
-	m.Get("/socket", sockets.JSON(Message{}, &sockets.Options{
-		Logger:            logger,
-		LogLevel:          sockets.LogLevelWarning,
-		SkipLogging:       false,
-		WriteWait:         60 * time.Second,
-		PongWait:          60 * time.Second,
-		PingPeriod:        (60 * time.Second * 8 / 10),
-		MaxMessageSize:    65536,
-		SendChannelBuffer: 10,
-		RecvChannelBuffer: 10,
-		// AllowedOrigin:     "https?://{{host}}$",
-		AllowedOrigin: ".",
-	}), handleWebSocket)
+	if config.Mode == "development" {
+		r.PathPrefix("/").HandlerFunc(getIndex)
+	}
+
+	// r.Get("/socket", sockets.JSON(Message{}, &sockets.Options{
+	// 	Logger:            logger,
+	// 	LogLevel:          sockets.LogLevelWarning,
+	// 	SkipLogging:       false,
+	// 	WriteWait:         60 * time.Second,
+	// 	PongWait:          60 * time.Second,
+	// 	PingPeriod:        (60 * time.Second * 8 / 10),
+	// 	MaxMessageSize:    65536,
+	// 	SendChannelBuffer: 10,
+	// 	RecvChannelBuffer: 10,
+	// 	// AllowedOrigin:     "https?://{{host}}$",
+	// 	AllowedOrigin: ".",
+	// }), handleWebSocket)
 }
 
-func withConn(ctx *macaron.Context, f func(*pgx.Conn) error) {
-	conn, err := pgxpool.Acquire()
+var webSocketUpgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin:     func(req *http.Request) bool { return true },
+}
+
+func upgradeWebSocket(wri http.ResponseWriter, req *http.Request) {
+	conn, err := webSocketUpgrader.Upgrade(wri, req, nil)
 	if err != nil {
-		ctx.Error(500, err.Error())
+		logger.Println(err)
 		return
 	}
-	defer pgxpool.Release(conn)
-	err = f(conn)
+	handleWebSocket(req, conn)
+}
+
+func withConn(f func(*pgx.Conn) error) error {
+	conn, err := pgxpool.Acquire()
 	if err != nil {
-		ctx.Error(500, err.Error())
+		return err
 	}
+	defer pgxpool.Release(conn)
+	return f(conn)
 }

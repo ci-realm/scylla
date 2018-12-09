@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	. "github.com/smartystreets/goconvey/convey"
+	"gopkg.in/go-playground/webhooks.v5/github"
 )
 
 func init() {
@@ -18,7 +19,7 @@ func init() {
 }
 
 func TestGithubJob(t *testing.T) {
-	job := &githubJob{Hook: &GithubHook{}}
+	job := &githubJob{Hook: &github.PullRequestPayload{}}
 	job.Hook.Repository.FullName = "user/repo"
 	job.Hook.PullRequest.Head.Sha = "sha"
 	job.Host = "http://example.com"
@@ -41,7 +42,7 @@ func TestGithubJob(t *testing.T) {
 }
 
 func TestLockID(t *testing.T) {
-	job := &githubJob{Hook: &GithubHook{}}
+	job := &githubJob{Hook: &github.PullRequestPayload{}}
 	Convey("job lockID can be the highest Int64", t, func() {
 		job.Hook.PullRequest.Head.Sha = "ffffffffffffffffffffffffffffffffffffffff"
 		So(job.lockID(), ShouldEqual, 1934001156059249939)

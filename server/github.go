@@ -21,34 +21,66 @@ import (
 	"sync"
 	"time"
 
-	macaron "gopkg.in/macaron.v1"
-
 	"github.com/jackc/pgx"
+	"github.com/k0kubun/pp"
 	"github.com/manveru/scylla/queue"
+	"gopkg.in/go-playground/webhooks.v5/github"
 )
 
 type githubJob struct {
-	Hook    *GithubHook
+	Hook    *github.PullRequestPayload
 	Host    string
 	buildID int
 	conn    *pgx.Conn
 }
 
-func postHooksGithub(ctx *macaron.Context, hook GithubHook) {
-	if ctx.Req.Header.Get("X-Github-Event") == "pull_request" && hook.Action != "closed" {
-		if err := enqueueGithub(&hook, progressHost(ctx)); err != nil {
-			ctx.JSON(500, map[string]string{"status": "ERROR", "error": err.Error()})
-			return
+func postHooksGithub(w http.ResponseWriter, r *http.Request) {
+	hook, err := github.New()
+	if err != nil {
+	}
+
+	payload, err := hook.Parse(r, github.PullRequestEvent)
+	if err != nil {
+		if err == github.ErrEventNotFound {
+			logger.Printf("Wrong event received: %s\n", err)
+		} else {
+			logger.Printf("Error while parsing Github hook: %s\n", err)
+		}
+	}
+	pp.Println(payload)
+
+	switch p := payload.(type) {
+	case github.PullRequestPayload:
+		if p.Action != "closed" {
+			pp.Println(p)
+			if err := enqueueGithub(&p, progressHost(r)); err != nil {
+				writeJSON(w, 500, map[string]string{"status": "ERROR", "error": err.Error()})
+				return
+			}
 		}
 
-		ctx.JSON(200, map[string]string{"status": "OK"})
+		writeJSON(w, 200, map[string]string{"status": "OK"})
 		return
 	}
 
-	ctx.JSON(200, map[string]string{"status": "IGNORED"})
+	writeJSON(w, 200, map[string]string{"status": "IGNORED"})
 }
 
-func enqueueGithub(hook *GithubHook, host string) error {
+func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	buf := &bytes.Buffer{}
+	err := json.NewEncoder(buf).Encode(payload)
+	if err != nil {
+		logger.Println(err)
+	}
+	_, err = w.Write(buf.Bytes())
+	if err != nil {
+		logger.Println(err)
+	}
+}
+
+func enqueueGithub(hook *github.PullRequestPayload, host string) error {
 	conn, err := pgxpool.Acquire()
 	if err != nil {
 		logger.Fatalln(err)
@@ -144,6 +176,7 @@ func (j *githubJob) build() error {
 
 	if len(j.resultNixPaths()) > 0 {
 		logger.Printf("%s: skipping build, results exist already.\n", j.id())
+		j.onSuccess()
 		return nil
 	}
 
@@ -174,6 +207,16 @@ func (j *githubJob) build() error {
 	}
 
 	return j.nixBuild()
+}
+
+func (j *githubJob) recordResultsInDB() {
+	for _, nixStorePath := range j.resultNixPaths() {
+		err := insertResult(j.buildID, nixStorePath)
+		if err != nil {
+			j.onError(err, "failed storing result in DB")
+			return
+		}
+	}
 }
 
 func (j *githubJob) gitFetch() error {
@@ -215,6 +258,16 @@ func (j *githubJob) runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 
 	var combinedOutput bytes.Buffer
 
+	// devNull, _ := os.Open(os.DevNull)
+	// devNull.Close()
+
+	// cmd.Stdin = devNull
+	// stdinPipe, err := cmd.StdinPipe()
+	// if err != nil {
+	// 	logger.Fatalln(err)
+	// }
+	// stdinPipe.Close()
+
 	stderrPipe, err := cmd.StderrPipe()
 	if err != nil {
 		logger.Fatalln(err)
@@ -248,7 +301,7 @@ func (j *githubJob) runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 
 	if err := cmd.Start(); err != nil {
 		_, _ = io.WriteString(&combinedOutput, err.Error())
-		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
+		return &combinedOutput, fmt.Errorf("%s failed with %s", cmd.Path, err)
 	}
 
 	wg.Wait()
@@ -256,7 +309,7 @@ func (j *githubJob) runCmd(cmd *exec.Cmd) (*bytes.Buffer, error) {
 
 	if err := cmd.Wait(); err != nil {
 		_, _ = io.WriteString(&combinedOutput, err.Error())
-		return &combinedOutput, fmt.Errorf("%s failed with %s\n", cmd.Path, err)
+		return &combinedOutput, fmt.Errorf("%s failed with %s", cmd.Path, err)
 	}
 
 	return &combinedOutput, nil
@@ -268,8 +321,6 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, error) {
 		append([]string{
 			subcmd,
 			"--show-trace",
-			"--builders", config.Builders,
-			"--max-jobs", "0", // force remote builds
 			"-I", "./nix",
 			"-I", j.sourceDir(),
 			"--argstr", "pname", j.pname(),
@@ -346,6 +397,10 @@ func (j *githubJob) writeOutputToDB(basename string, output []byte) {
 	}
 }
 
+func (j *githubJob) compactLog() error {
+	return compactLog(j.buildID)
+}
+
 func (j *githubJob) status(state, description string) {
 	logger.Println(j.id()+":", state, description)
 	go setGithubStatus(
@@ -365,27 +420,36 @@ func (j *githubJob) onError(err error, msg string) {
 }
 
 func (j *githubJob) onSuccess() {
-	logger.Printf("%s: success\n", j.id())
-	j.status("success", "Evaluation of "+j.id()+" succeeded")
-	updateBuildStatus(j, "success")
+	if err := j.compactLog(); err != nil {
+		logger.Printf("%s: Failed copying to cache: %s\n", j.id(), err)
+	}
+
+	logger.Printf("%s: build success\n", j.id())
+	j.status("pending", "Evaluation of "+j.id()+" succeeded")
 
 	// TODO: also remove outputs to allow GC
 	_ = os.RemoveAll(j.sourceDir())
-	j.copyResultsToCache()
-
-	for _, nixStorePath := range j.resultNixPaths() {
-		// we'll just assume those are docker containers for now
-		// we should get a list of docker containers from the ci.nix later.
-		if strings.HasSuffix(nixStorePath, ".tar.gz") {
-			logger.Println("Starting Jenkins job for", nixStorePath)
-			err := startJenkinsJob("e-recruiting-api-team-nix-deployer", url.Values{
-				"DOCKER_IMAGE_PATH": {nixStorePath},
-			})
-			if err != nil {
-				logger.Println("Jenkins result:", err)
-			}
-		}
+	if err := j.copyResultsToCache(); err != nil {
+		logger.Printf("%s: Failed copying to cache: %s\n", j.id(), err)
 	}
+
+	logger.Printf("%s: success\n", j.id())
+	j.status("success", fmt.Sprintf("Cached results of %s", j.id()))
+	updateBuildStatus(j, "success")
+
+	// for _, nixStorePath := range j.resultNixPaths() {
+	// 	// we'll just assume those are docker containers for now
+	// 	// we should get a list of docker containers from the ci.nix later.
+	// 	if strings.HasSuffix(nixStorePath, ".tar.gz") {
+	// 		logger.Println("Starting Jenkins job for", nixStorePath)
+	// 		err := startJenkinsJob("e-recruiting-api-team-nix-deployer", url.Values{
+	// 			"DOCKER_IMAGE_PATH": {nixStorePath},
+	// 		})
+	// 		if err != nil {
+	// 			logger.Println("Jenkins result:", err)
+	// 		}
+	// 	}
+	// }
 }
 
 func (j *githubJob) resultNixPaths() []string {
@@ -408,24 +472,13 @@ func (j *githubJob) resultNixPaths() []string {
 	return matches
 }
 
-func (j *githubJob) copyResultsToCache() {
-	for _, nixStorePath := range j.resultNixPaths() {
-		err := insertResult(j.buildID, nixStorePath)
-		if err != nil {
-			j.onError(err, "failed storing result in DB")
-			return
-		}
+func (j *githubJob) copyResultsToCache() (err error) {
+	cachixErr := copyResultsToCachix(j, config.CachixName)
+	nixStoreErr := copyResultsToNixStore(j, config.NixCopyURL)
+	if cachixErr != nil {
+		return cachixErr
 	}
-
-	_, err := j.runCmd(exec.Command(
-		"ssh", "root@3.120.166.103",
-		"nix", "copy",
-		"--all",
-		"--to", "s3://scylla-cache?region=eu-central-1",
-	))
-	if err != nil {
-		j.onError(err, "failed copying results to binary cache")
-	}
+	return nixStoreErr
 }
 
 func (j *githubJob) findOrCreateProjectID() (int, error) {
@@ -484,22 +537,33 @@ func setGithubStatus(targetURL, statusURL, state, description string) {
 
 	req.SetBasicAuth(config.GithubUser, config.GithubToken)
 
-	_, err = http.DefaultClient.Do(req)
+	res, err := http.DefaultClient.Do(req)
 	if err != nil {
 		logger.Printf("Error while calling Github API: %s\n", err)
 	}
+
+	if res.StatusCode < 300 {
+		return
+	}
+
+	resBody, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		logger.Printf("Failed setting status, received HTTP status %d but failed reading body\n", res.StatusCode)
+	}
+
+	logger.Printf("Failed setting status, received HTTP status %d with body:\n%s\n", res.StatusCode, string(resBody))
 }
 
 func cleanJoin(parts ...string) string {
 	return filepath.Clean(filepath.Join(parts...))
 }
 
-func progressHost(ctx *macaron.Context) string {
-	proto := ctx.Req.Header.Get("X-Forwarded-Proto")
+func progressHost(r *http.Request) string {
+	proto := r.Header.Get("X-Forwarded-Proto")
 	if proto == "" {
 		proto = "http"
 	}
-	return fmt.Sprintf("%s://%s", proto, ctx.Req.Host)
+	return fmt.Sprintf("%s://%s", proto, r.Host)
 }
 
 func githubAuthKey(givenURL, token string) string {

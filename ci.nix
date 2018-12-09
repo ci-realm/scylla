@@ -7,6 +7,7 @@
 
   all = rec {
     scylla = pkgs.callPackage ./. { scylla-frontend = frontend; };
+    scyllaDB = pkgs.copyPathToStore ./db;
     docker = pkgs.callPackage ./nix/docker.nix { scylla = scylla.scylla; };
     depTree = scylla.depTree;
     hello = pkgs.hello;
@@ -27,6 +28,8 @@
   };
 
   scylla = all.scylla.scylla;
+  scyllaDB = all.scyllaDB;
+  frontend = all.frontend;
   hello = all.hello;
   docker = all.docker;
   deep = pkgs.recurseIntoAttrs { };

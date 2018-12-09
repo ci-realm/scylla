@@ -7,7 +7,7 @@
       app
     >
       <v-list dense>
-        <v-list-tile v-for="item in menuItems" :to="item.link">
+        <v-list-tile v-for="item in menuItems" :to="item.link" :key="item.link">
           <v-list-tile-action>
             <v-icon>{{item.icon}}</v-icon>
           </v-list-tile-action>
@@ -40,6 +40,7 @@
               color="teal"
               indeterminate
             ></v-progress-circular>
+            Connecting to server...
           </v-flex>
         </v-layout>
       </v-container>

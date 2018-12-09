@@ -23,9 +23,9 @@ export default {
   name: 'organizations',
   created() {
     if (!this.refresher) {
-      this.$socket.sendObj({ Kind: 'organizations' })
+      this.$socket.sendObj({ kind: 'organizations' })
       this.refresher = setInterval(() => {
-        this.$socket.sendObj({ Kind: 'organizations' })
+        this.$socket.sendObj({ kind: 'organizations' })
       }, 5000)
     }
   },
@@ -34,8 +34,8 @@ export default {
   },
   methods: {
     linkToBuild(build) {
-      const { repo } = build.Hook.pull_request.head
-      return `/builds/${repo.owner.login}/${repo.name}/${build.ID}`
+      const { repo } = build.hook.pull_request.head
+      return `/builds/${repo.owner.login}/${repo.name}/${build.id}`
     },
   },
   computed: {
@@ -49,10 +49,10 @@ export default {
     orgData() {
       return this.$store.state.socket.organizations.map(org => ({
         value: false,
-        owner: org.Owner,
-        url: org.URL,
-        buildCount: org.BuildCount,
-        orgLink: `/organizations/${org.Owner}`,
+        owner: org.owner,
+        url: org.url,
+        buildCount: org.buildCount,
+        orgLink: `/organizations/${org.owner}`,
       }))
     },
   },

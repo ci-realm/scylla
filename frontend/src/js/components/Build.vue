@@ -1,5 +1,5 @@
 <template>
-<div v-if="build.Status">
+<div v-if="build.status">
   <h1>{{ $route.params.owner }} / {{ $route.params.repo }}</h1>
   <h2>Build {{ $route.params.id }}</h2>
   <div>
@@ -12,10 +12,11 @@
   <div>{{ pr.user.login }}</div>
   <div>{{ duration() }}</div>
   <timeago :datetime="createdAt()" :auto-update="10"></timeago>
-  <v-btn @click="toggleLive">
+  <v-btn color="info" @click="toggleLive">
     <v-icon v-if="live">mdi-pause</v-icon>
     <v-icon v-else>mdi-play</v-icon>
   </v-btn>
+  <v-btn color="info" @click="restart">Restart this Build</v-btn>
   <v-data-iterator
     id="console-log"
     :rows-per-page-items="rowsPerPageItems"
@@ -36,8 +37,8 @@ export default {
   created() {
     const { owner, repo, id } = this.$route.params
     const projectName = `${owner}/${repo}`
-    this.$socket.sendObj({ Kind: 'build', Data: { id, projectName } })
-    this.$socket.sendObj({ Kind: 'build-log-watch', Data: { id, projectName } })
+    this.$socket.sendObj({ kind: 'build', data: { id, projectName } })
+    this.$socket.sendObj({ kind: 'buildLogWatch', data: { id, projectName } })
   },
   updated() {
     this.scrollToEnd()
@@ -45,11 +46,15 @@ export default {
   destroyed() {
     const { owner, repo, id } = this.$route.params
     const projectName = `${owner}/${repo}`
-    this.$socket.sendObj({ Kind: 'build-log-unwatch', Data: { id, projectName } })
+    this.$socket.sendObj({ kind: 'buildLogUnwatch', data: { id, projectName } })
   },
   methods: {
     toggleLive() {
       this.live = !this.live
+    },
+    restart() {
+      const { id } = this.$route.params
+      this.$socket.sendObj({ kind: 'restart', data: { id } })
     },
     scrollToEnd() {
       if (this.live && this.$el.querySelector) {
@@ -64,12 +69,12 @@ export default {
       return `Ran for ${d?.humanize()}`
     },
     finishedAt() {
-      const time = this.build.FinishedAt?.Time
+      const time = this.build.finishedAt
       if (time === undefined) { return undefined }
       return Moment(time)
     },
     createdAt() {
-      const time = this.build.CreatedAt.Time
+      const time = this.build.createdAt
       if (time === undefined) { return undefined }
       return Moment(time)
     },
@@ -82,7 +87,7 @@ export default {
       return this.$store.state.socket.build
     },
     oldLines() {
-      return this.$store.state.socket.build.Log.Elements.map(line => (
+      return this.$store.state.socket.build.log.Elements.map(line => (
         line
       )).join('\n')
     },
@@ -90,7 +95,7 @@ export default {
       return this.$store.state.socket.build_lines
     },
     pr() {
-      return this.build.Hook.pull_request
+      return this.build.hook.pull_request
     },
     filteredLines() {
       return this.$store.state.socket.build_lines
@@ -99,9 +104,9 @@ export default {
   data() {
     return {
       live: true,
-      rowsPerPageItems: [2, 4, 8],
+      rowsPerPageItems: [50, 100, 200],
       pagination: {
-        rowsPerPage: 4,
+        rowsPerPage: 50,
       },
     }
   },

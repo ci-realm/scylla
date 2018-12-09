@@ -1,17 +1,26 @@
-[![Test Coverage](https://codeclimate.dc.xing.com/api/v1/badges/2a3cd8a93cb08d87313d/test_coverage)](https://codeclimate.dc.xing.com/repos/5baf6601b556f83953000282/test_coverage)
-[![Maintainability](https://codeclimate.dc.xing.com/api/v1/badges/2a3cd8a93cb08d87313d/maintainability)](https://codeclimate.dc.xing.com/repos/5baf6601b556f83953000282/maintainability)
-
 # Nix Flavoured Continuous Integration
 
 Scylla is a simple CI server that solves one thing:
 Evaluate [Nix](https://nixos.org/nix/) derivations and inform you and GitHub
 about the results.
 
-Scylla is implemented in Go, and needs nothing but Nix for building, logging,
-and caching.
+Scylla is implemented in Go, and needs nothing but Nix and PostgreSQL for
+building, logging, and caching.
 
 I try to keep the moving parts as reliable as possible, since at the end of the
 day, all we care about is that it works.
+
+## Getting
+
+```console
+$ go get github.com/manveru/scylla
+```
+
+## Update deps.nix
+
+```console
+$ nix-shell -p vgo2nix --command 'vgo2nix'
+```
 
 ## What Scylla Can Do For You
 
@@ -52,7 +61,13 @@ day, all we care about is that it works.
 
 5. Running the server
 
-       ./result/bin/scylla
+       ./result/bin/scylla \
+         --builders 'nix@eddie.r x86_64 /path/to/private_passwordless_ssh_key_to_builder' \
+         --github-token <INSERT_GITHUB_TOKEN> \
+         --github-url https://github.com/<owner>/<project> \
+         --github-user <GITHUB_USER> \
+         --private-ssh-key ~/.ssh/id_ed25519 \
+         --database-url 'postgres:///tmp/dbname'
 
 6. Add a `ci.nix` file to the project you want to use it with.
 
@@ -86,8 +101,8 @@ day, all we care about is that it works.
 
 ### Must have
 
-- [ ] Resume aborted builds when server restarts
-- [ ] Handle build timeouts better
+- [x] Resume aborted builds when server restarts
+- [x] Handle build timeouts better
 - [ ] Remove old builds automatically
 - [ ] Better scheduling, right now it's limited by number of Cores
 - [ ] Option to restart builds easily

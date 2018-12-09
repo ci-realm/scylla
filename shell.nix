@@ -1,6 +1,5 @@
 { pkgs ? import ./nix/nixpkgs.nix }: with pkgs;
 let
-  depTree = import ./nix/deptree.nix;
   gems = bundlerEnv {
     inherit ruby_2_5;
     name = "scylla-dev-gems";
@@ -10,19 +9,21 @@ let
     name = "scylla-env";
     paths = [
       yarn
+      vgo2nix
+      cachix
       yarn2nix
       nodejs
       dbmate
-      dep2nix
+      pgcli
       (lowPrio gotools)
       gocode
       goimports
       golangci-lint
       go
+      gcc
       nix-prefetch-git
       git
       protobuf3_4
-      remarshal
       ejson
       gems.wrappedRuby
       (lowPrio gems)
@@ -33,17 +34,5 @@ in mkShell {
   PERL5LIB = "${git.outPath}/lib/perl5/site_perl/5.28.0";
 
   CGO_ENABLED = "1";
-  GOPATH="/home/manveru/go";
-  GOROOT="${go}/share/go";
-
-  shellHook = ''
-    export GOPATH="$HOME/go";
-    export GOROOT="${go}/share/go"
-    if [[ -e shell.nix ]]; then
-      set -x
-      rm -rf vendor
-      ln -s ${depTree}/vendor $PWD/vendor
-      set +x
-    fi
-  '';
+  GO111MODULE = "on";
 }

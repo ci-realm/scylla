@@ -37,7 +37,7 @@ export default {
   name: 'builds',
   created() {
     if (!this.refresher) {
-      const msg = { Kind: 'organization-builds', Data: { orgName: this.$route.params.name } }
+      const msg = { kind: 'organizationBuilds', data: { orgName: this.$route.params.name } }
       this.$socket.sendObj(msg)
       this.refresher = setInterval(() => {
         this.$socket.sendObj(msg)
@@ -52,7 +52,7 @@ export default {
       return `${row.Status}-row`
     },
     fetchBuilds() {
-      this.$socket.sendObj({ Kind: 'last-builds' })
+      this.$socket.sendObj({ kind: 'lastBuilds' })
     },
     statusColor(status) {
       const statusMap = {
@@ -74,11 +74,11 @@ export default {
     timeDiff(from, to) {
       // TODO: check when `to` is not there.
       if (to === undefined) { return 'pending' }
-      return Moment.duration(Moment(from.Time).diff(Moment(to.Time)))
+      return Moment.duration(Moment(from).diff(Moment(to)))
     },
     linkToBuild(build) {
-      const { repo } = build.Hook.pull_request.head
-      return `/builds/${repo.owner.login}/${repo.name}/${build.ID}`
+      const { repo } = build.hook.pull_request.head
+      return `/builds/${repo.owner.login}/${repo.name}/${build.id}`
     },
   },
   computed: {
@@ -94,12 +94,12 @@ export default {
     },
     buildData() {
       return this.$store.state.socket.organizationBuilds.map((build) => {
-        const pr = build.Hook.pull_request
+        const pr = build.hook.pull_request
 
         return {
           value: false,
-          time: build.CreatedAt.Time,
-          project: build.ProjectName,
+          time: build.createdAt,
+          project: build.projectName,
           owner: pr.head.repo.owner.login,
           ownerLink: pr.head.repo.owner.html_url,
           repo: pr.head.repo.name,
@@ -107,10 +107,10 @@ export default {
           status: build.Status,
           sha: this.shortSHA(pr.head.sha),
           shaLink: `${pr.base.repo.html_url}/commit/${pr.head.sha}`,
-          duration: this.timeDiff(build.FinishedAt, build.CreatedAt),
+          duration: this.timeDiff(build.finishedAt, build.createdAt),
           prLink: pr.html_url,
           buildLink: this.linkToBuild(build),
-          id: build.ID,
+          id: build.id,
         }
       })
     },

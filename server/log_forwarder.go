@@ -16,8 +16,8 @@ type logListener struct {
 
 type logLine struct {
 	ID      int64     `json:"id"`
-	BuildID int64     `json:"build_id"`
-	Time    time.Time `json:"created_at"`
+	BuildID int64     `json:"buildId"`
+	Time    time.Time `json:"createdAt"`
 	Line    string    `json:"line"`
 }
 
