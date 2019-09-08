@@ -11,8 +11,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gorilla/mux"
 	"github.com/gorilla/handlers"
+	"github.com/gorilla/mux"
 )
 
 var templateFuncMap = []template.FuncMap{{
@@ -56,9 +56,9 @@ func Start() {
 	setupRouting(r)
 
 	recovery := handlers.RecoveryHandler(
-    handlers.PrintRecoveryStack(true),
-    handlers.RecoveryLogger(logger),
-  )
+		handlers.PrintRecoveryStack(true),
+		handlers.RecoveryLogger(logger),
+	)
 
 	srv := &http.Server{
 		Handler:      handlers.CombinedLoggingHandler(os.Stderr, recovery(r)),

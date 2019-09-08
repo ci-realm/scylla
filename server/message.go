@@ -19,7 +19,7 @@ func (d msgData) getString(key string) (string, error) {
 	if ok {
 		return value, nil
 	}
-	return value, fmt.Errorf("Coudln't find key '%s' in Data %v", key, d)
+	return value, fmt.Errorf("Couldn't find key '%s' in Data %v", key, d)
 }
 
 func (d msgData) getInt64(key string) (int64, error) {

@@ -2,7 +2,7 @@
   "name": "scylla",
   "description": "A Vue.js project",
   "version": "1.0.0",
-  "author": "Michael Fellinger <michael.fellinger@xing.com>",
+  "author": "Michael Fellinger <scylla@manveru.dev>",
   "private": true,
   "scripts": {
     "dev": "cross-env NODE_ENV=development NODE_APP_MODE=app webpack-dev-server --open --hot",

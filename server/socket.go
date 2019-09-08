@@ -1,60 +1,137 @@
 package server
 
 import (
+	"fmt"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/manveru/scylla/queue"
 )
 
+const (
+	// Time allowed to read the next pong message from the client.
+	pongWait = 60 * time.Second
+
+	// Send pings to client with this period. Must be less than pongWait.
+	pingPeriod = (pongWait * 9) / 10
+
+	// Empty the messages outbox every period.
+	msgsPeriod = 1 * time.Second
+
+	// Time allowed to write the message to the client.
+	writeWait = 10 * time.Second
+)
+
 func handleWebSocket(r *http.Request, conn *websocket.Conn) {
-	socket := &webSocket{conn: conn, host: progressHost(r)}
-	socket.mainLoop()
+	conn.SetReadLimit(512)
+
+	conn.SetPongHandler(func(string) error {
+		log.Println("PONG")
+		conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
+	socket := &webSocket{
+		conn:   conn,
+		host:   progressHost(r),
+		outbox: make(chan *Message),
+	}
+
+	go socket.writer()
+	socket.reader()
 }
 
 type webSocket struct {
 	conn     *websocket.Conn
 	host     string
 	listener *logListener
+	outbox   chan *Message
 }
 
-func (s *webSocket) mainLoop() {
+func (s *webSocket) writer() {
+	pingTicker := time.NewTicker(pingPeriod)
+	msgsTicker := time.NewTicker(msgsPeriod)
+
+	defer func() {
+		pingTicker.Stop()
+		msgsTicker.Stop()
+		s.conn.Close()
+	}()
+
+	for {
+		select {
+		case <-msgsTicker.C:
+			msg, ok := <-s.outbox
+			if ok && msg != nil {
+				fmt.Println(msg)
+				s.conn.SetWriteDeadline(time.Now().Add(writeWait))
+				if err := s.conn.WriteJSON(msg); err != nil {
+					logger.Println(err)
+					return
+				}
+			}
+		case <-pingTicker.C:
+			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
+			log.Println("PING")
+			if err := s.conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+				return
+			}
+		}
+	}
+}
+
+func (s *webSocket) reader() {
+	defer s.conn.Close()
+	s.conn.SetReadLimit(512)
+	s.conn.SetReadDeadline(time.Now().Add(pongWait))
+	s.conn.SetPongHandler(func(string) error {
+		log.Println("PONG")
+		s.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return nil
+	})
+
 	for {
 		msg := &Message{}
 		err := s.conn.ReadJSON(msg)
 		if err != nil {
 			log.Println(err)
+			s.cleanup()
 			return
 		}
 
-		logger.Println(msg.Kind)
+		s.handleMessage(msg)
+	}
+}
 
-		switch msg.Kind {
-		case "restart":
-			s.restartBuild(msg.Data)
-		case "lastBuilds":
-			s.getLastBuilds(msg.Data)
-		case "organizations":
-			s.getOrganizations(msg.Data)
-		case "organizationBuilds":
-			s.getOrganizationBuilds(msg.Data)
-		case "build":
-			s.getBuild(msg.Data)
-		case "buildLogWatch":
-			s.getBuildLogWatch(msg.Data)
-		case "buildLogUnwatch":
-			s.getBuildLogUnwatch(msg.Data)
-		}
+func (s *webSocket) handleMessage(msg *Message) {
+	logger.Println(msg.Kind)
+
+	switch msg.Kind {
+	case "restart":
+		s.restartBuild(msg.Data)
+	case "lastBuilds":
+		s.getLastBuilds(msg.Data)
+	case "organizations":
+		s.getOrganizations(msg.Data)
+	case "organizationBuilds":
+		s.getOrganizationBuilds(msg.Data)
+	case "build":
+		s.getBuild(msg.Data)
+	case "buildLogWatch":
+		s.getBuildLogWatch(msg.Data)
+	case "buildLogUnwatch":
+		s.getBuildLogUnwatch(msg.Data)
+	default:
+		s.wsError(fmt.Errorf("Unknown message: %v", msg.Kind))
 	}
 }
 
 func (s *webSocket) writeData(mutation string, data msgData) {
-	if err := s.conn.WriteJSON(&Message{
+	s.outbox <- &Message{
 		Mutation: mutation,
 		Data:     data,
-	}); err != nil {
-		logger.Println(err)
 	}
 }
 
@@ -68,6 +145,8 @@ func (s *webSocket) getOrganizationBuilds(data msgData) {
 	orgName, err := data.getString("orgName")
 	if err != nil {
 		logger.Println(err)
+
+		s.wsError(err)
 		return
 	}
 
@@ -112,11 +191,7 @@ func (s *webSocket) getBuildLogWatch(data msgData) {
 		return
 	}
 
-	if s.listener != nil {
-		logger.Println("Unregister from existing")
-		logListenerUnregister <- s.listener
-		s.listener = nil
-	}
+	s.cleanup()
 
 	recv := make(chan *logLine)
 	listener := &logListener{buildID: id, recv: recv}
@@ -135,11 +210,7 @@ func (s *webSocket) getBuildLogWatch(data msgData) {
 }
 
 func (s *webSocket) getBuildLogUnwatch(data msgData) {
-	if s.listener != nil {
-		logger.Println("Unregister from build log")
-		logListenerUnregister <- s.listener
-		s.listener = nil
-	}
+	s.cleanup()
 }
 
 func wsOrganizations() (orgs []dbOrg) {
@@ -206,4 +277,18 @@ func wsBuild(buildID int64) (build *dbBuild) {
 	}
 
 	return
+}
+
+func (s *webSocket) cleanup() {
+	if s.listener != nil {
+		logger.Println("Unregister existing listener")
+		logListenerUnregister <- s.listener
+		s.listener = nil
+	}
+}
+
+func (s *webSocket) wsError(err error) {
+	s.writeData("error", msgData{
+		"error": err,
+	})
 }

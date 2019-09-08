@@ -55,8 +55,7 @@ $ createdb scylla --owner $USER
 Apply database migration
 
 ```console
-$ go get github.com/amacneil/dbmate
-$ DATABASE_URL="postgres:///scylla?sslmode=disable&host=/tmp" dbmate up
+$ DATABASE_URL="postgres:///scylla?sslmode=disable&host=/tmp" nix run dbmate -c dbmate up
 ```
 
 #### Running

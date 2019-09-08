@@ -1,38 +1,32 @@
-{ pkgs ? import ./nix/nixpkgs.nix }: with pkgs;
-let
-  gems = bundlerEnv {
-    inherit ruby_2_5;
-    name = "scylla-dev-gems";
-    gemdir = ./.;
-  };
-  env = buildEnv {
-    name = "scylla-env";
-    paths = [
-      yarn
-      vgo2nix
-      cachix
-      yarn2nix
-      nodejs
-      dbmate
-      pgcli
-      (lowPrio gotools)
-      gocode
-      goimports
-      golangci-lint
-      go
-      gcc
-      nix-prefetch-git
-      git
-      protobuf3_4
-      ejson
-      gems.wrappedRuby
-      (lowPrio gems)
-    ];
-  };
-in mkShell {
-  buildInputs = [ env ];
-  PERL5LIB = "${git.outPath}/lib/perl5/site_perl/5.28.0";
+{ pkgs ? import ./nix/nixpkgs.nix }:
+pkgs.mkShell {
+  buildInputs = with pkgs; [
+    cacert
+    cachix
+    dbmate
+    gcc
+    git
+    go
+    gocode
+    goimports
+    golangci-lint
+    go-langserver
+    (lowPrio gotools)
+    nix-prefetch-git
+    nodejs
+    pgcli
+    vgo2nix
+    yarn
+    yarn2nix
+    elmPackages.elm
+    elm2nix
+  ];
+  PERL5LIB = "${pkgs.git.outPath}/lib/perl5/site_perl/5.28.0";
 
   CGO_ENABLED = "1";
-  GO111MODULE = "on";
+
+  shellHook = ''
+    unset preHook
+    unset GOPATH
+  '';
 }

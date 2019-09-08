@@ -47,7 +47,7 @@ func SetupDB() {
 		MaxConnections: 20,
 	})
 	if err != nil {
-		logger.Fatalln(err)
+		logger.Fatalln("Couldn't connect to database:", err)
 	}
 }
 
@@ -299,7 +299,7 @@ func findFullBuildByID(db *pgx.Conn, buildID int64) (*dbBuild, error) {
 	if logContent.String != "" {
 		build.Log = []*logLine{}
 		for _, line := range strings.Split(logContent.String, "\n") {
-			build.Log = append(build.Log , &logLine{Line: line})
+			build.Log = append(build.Log, &logLine{Line: line})
 		}
 	}
 

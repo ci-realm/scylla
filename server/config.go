@@ -11,7 +11,7 @@ import (
 
 var config struct {
 	BuildDir          string `arg:"--build-dir,env:BUILD_DIR" help:"location for git checkouts"`
-	Builders          string `arg:"--builders,required,env:BUILDERS" help:"nix.conf syntax"`
+	Builders          string `arg:"--builders,env:BUILDERS" help:"nix.conf syntax"`
 	CachixName        string `arg:"--cachix-name,env:CACHIX_NAME" help:"Set to push results to cachix"`
 	DatabaseURL       string `arg:"--database-url,required,env:DATABASE_URL" help:"postgresql://user:pass@host:port/db"`
 	GithubToken       string `arg:"--github-token,required,env:GITHUB_TOKEN" help:"Token for GitHub auth"`
