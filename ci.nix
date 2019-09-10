@@ -27,6 +27,8 @@
     '';
   };
 
+  slowFailing = all.slowFailing;
+
   scylla = all.scylla.scylla;
   scyllaDB = all.scyllaDB;
   frontend = all.frontend;
