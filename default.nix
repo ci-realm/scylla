@@ -1,14 +1,10 @@
-{ stdenv, lib, buildGoPackage, fetchFromGitHub, makeWrapper, runCommand, remarshal, scylla-frontend }:
+{ stdenv, lib, buildGoPackage, fetchFromGitHub, makeWrapper, runCommand
+, remarshal, frontend }:
 
 with builtins;
 with lib;
 
 rec {
-  runDir = runCommand "scylla-dir" {} ''
-    mkdir -p $out
-    ln -s ${scylla-frontend} $out/public
-  '';
-
   scylla-bin = buildGoPackage rec {
     name = "scylla-unstable-${version}";
     version = "2018-07-23";
@@ -17,8 +13,8 @@ rec {
 
     keepPrefixes = (map (pa: toString pa) [ ./Makefile ./queue ./server ]);
     src = filterSource (path: type:
-      (hasSuffix ".go" path) ||
-      (any (prefix: lib.hasPrefix prefix path) keepPrefixes)) ./.;
+      (hasSuffix ".go" path)
+      || (any (prefix: lib.hasPrefix prefix path) keepPrefixes)) ./.;
 
     goDeps = ./deps.nix;
 
@@ -30,7 +26,7 @@ rec {
 
     meta = {
       description = "A simple, easy to deploy Nix Continous Integration server";
-      homepage = https://github.com/manveru/scylla;
+      homepage = "https://github.com/manveru/scylla";
       license = licenses.mit;
       maintainers = [ maintainers.manveru ];
       platforms = platforms.unix;
@@ -40,6 +36,6 @@ rec {
   scylla = runCommand "scylla-dir" { buildInputs = [ makeWrapper ]; } ''
     mkdir -p $out/bin
     cp ${scylla-bin}/bin/scylla $out/bin
-    wrapProgram $out/bin/scylla --run "cd ${runDir}"
+    wrapProgram $out/bin/scylla --run "cd ${frontend}"
   '';
 }

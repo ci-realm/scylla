@@ -4,14 +4,24 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
+	"os"
 	"time"
 
 	"github.com/jackc/pgx"
+	"github.com/k0kubun/pp"
 )
 
 type logListener struct {
 	buildID int64
 	recv    chan *logLine
+}
+
+type dbLogLine struct {
+	ID      int64     `json:"id"`
+	BuildID int64     `json:"build_id"`
+	Time    time.Time `json:"created_at"`
+	Line    string    `json:"line"`
 }
 
 type logLine struct {
@@ -34,6 +44,7 @@ func startLogDistributor(pool *pgx.ConnPool) {
 	distribution := make(chan *logLine, 1000)
 
 	go listenLogs(pool, distribution)
+	// go fakeLogs()
 
 	for {
 		select {
@@ -101,12 +112,15 @@ func listenLogs(pool *pgx.ConnPool, distribution chan *logLine) {
 			continue
 		}
 
-		ll := logLine{}
+		ll := dbLogLine{}
+		pp.Println(noti.Payload)
 		err = json.NewDecoder(bytes.NewBufferString(noti.Payload)).Decode(&ll)
 		if err != nil {
 			logger.Println(err)
 		}
-		distribution <- &ll
+		pp.Println("forwarding line:", ll)
+    // rebuild for different JSON format
+		distribution <- &logLine{ID: ll.ID, BuildID: ll.BuildID, Line: ll.Line, Time: ll.Time}
 	}
 }
 
@@ -118,4 +132,26 @@ func forwardLogToDB(conn *pgx.Conn, buildID int64, line string) {
 	if err != nil {
 		logger.Println(err)
 	}
+}
+
+// TODO: convert into test
+func fakeLogs() {
+	time.Sleep(1 * time.Second)
+
+	conn, err := pgxpool.Acquire()
+	defer pgxpool.Release(conn)
+	if err != nil {
+		logger.Fatalln(err)
+	}
+
+	time.Sleep(1 * time.Second)
+
+	for n := 1; n > 0; n++ {
+		// _, err := runCmdForBuild(int64(buildID), exec.Command("./sleepy.sh"))
+		// pp.Println(err)
+		forwardLogToDB(conn, 3, fmt.Sprintf("example line %d", n))
+		time.Sleep(10 * time.Second)
+	}
+
+	os.Exit(0)
 }

@@ -6,7 +6,6 @@
 , busybox
 , coreutils
 , curl
-, git-info
 , cacert
 , git
 , gnutar
@@ -35,16 +34,12 @@ let
   ];
 
   labels = {
-    maintainer = "Michael Fellinger <mf@seitenschmied.at>";
-    "com.xing.docker_build.target" = "prod";
-    "com.xing.git.sha1"   = git-info "git rev-parse --verify HEAD" ./..;
-    "com.xing.git.time"   = git-info "git show -s --format=%cI HEAD" ./..;
-    "com.xing.git.remote" = git-info "git config --get remote.origin.url" ./..;
+    maintainer = "Michael Fellinger <scylla@manveru.dev>";
   };
 
 in buildLayeredImage {
   name = "quay.dc.xing.com/e-recruiting-api-team/scylla";
-  tag = git-info "git rev-parse --verify HEAD" ./..;
+  tag = "latest";
   created = "now";
   maxLayers = 90;
   contents = [ # FIXME: graham has a patch for this he'll push soon

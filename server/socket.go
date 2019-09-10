@@ -2,7 +2,6 @@ package server
 
 import (
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -28,7 +27,6 @@ func handleWebSocket(r *http.Request, conn *websocket.Conn) {
 	conn.SetReadLimit(512)
 
 	conn.SetPongHandler(func(string) error {
-		log.Println("PONG")
 		conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
@@ -62,20 +60,17 @@ func (s *webSocket) writer() {
 
 	for {
 		select {
-		case <-msgsTicker.C:
-			msg, ok := <-s.outbox
-			if ok && msg != nil {
-				fmt.Println(msg)
+		case msg := <-s.outbox:
+			if msg != nil {
 				s.conn.SetWriteDeadline(time.Now().Add(writeWait))
 				if err := s.conn.WriteJSON(msg); err != nil {
-					logger.Println(err)
 					return
 				}
 			}
 		case <-pingTicker.C:
 			s.conn.SetWriteDeadline(time.Now().Add(writeWait))
-			log.Println("PING")
 			if err := s.conn.WriteMessage(websocket.PingMessage, []byte{}); err != nil {
+        logger.Println(err)
 				return
 			}
 		}
@@ -87,7 +82,6 @@ func (s *webSocket) reader() {
 	s.conn.SetReadLimit(512)
 	s.conn.SetReadDeadline(time.Now().Add(pongWait))
 	s.conn.SetPongHandler(func(string) error {
-		log.Println("PONG")
 		s.conn.SetReadDeadline(time.Now().Add(pongWait))
 		return nil
 	})
@@ -96,7 +90,7 @@ func (s *webSocket) reader() {
 		msg := &Message{}
 		err := s.conn.ReadJSON(msg)
 		if err != nil {
-			log.Println(err)
+			logger.Println(err)
 			s.cleanup()
 			return
 		}
@@ -202,7 +196,8 @@ func (s *webSocket) getBuildLogWatch(data msgData) {
 	go func() {
 		for line := range recv {
 			s.writeData("buildLog", msgData{
-				"time": line.Time,
+        "buildId": line.BuildID,
+				"createdAt": line.Time,
 				"line": line.Line,
 			})
 		}
@@ -281,7 +276,6 @@ func wsBuild(buildID int64) (build *dbBuild) {
 
 func (s *webSocket) cleanup() {
 	if s.listener != nil {
-		logger.Println("Unregister existing listener")
 		logListenerUnregister <- s.listener
 		s.listener = nil
 	}

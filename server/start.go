@@ -1,19 +1,18 @@
 package server
 
+
 import (
 	"fmt"
 	"html/template"
-	"io/ioutil"
 	"net/http"
 	"os"
-	"os/exec"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
+
 
 var templateFuncMap = []template.FuncMap{{
 	"FormatTime": func(t time.Time) string {
@@ -45,7 +44,6 @@ var templateFuncMap = []template.FuncMap{{
 func Start() {
 	ParseConfig()
 	SetupDB()
-	populateKnownHosts()
 	defer pgxpool.Close()
 
 	go SetupQueue()
@@ -60,6 +58,8 @@ func Start() {
 		handlers.RecoveryLogger(logger),
 	)
 
+  logger.Printf("Starting server at http://%s:%d\n", config.Host, config.Port)
+
 	srv := &http.Server{
 		Handler:      handlers.CombinedLoggingHandler(os.Stderr, recovery(r)),
 		Addr:         fmt.Sprintf("%s:%d", config.Host, config.Port),
@@ -67,68 +67,4 @@ func Start() {
 		ReadTimeout:  15 * time.Second,
 	}
 	logger.Fatal(srv.ListenAndServe())
-}
-
-// ssh-keyscan <host> >> ~/.ssh/known_hosts
-func populateKnownHosts() {
-	if !config.PrepareKnownHosts {
-		return
-	}
-
-	knownHosts := []string{}
-	hosts := []string{}
-
-	// TODO: new builders syntax is:
-	// --builders 'ssh://mac x86_64-darwin ; ssh://beastie x86_64-freebsd'
-	for _, line := range strings.Split(config.Builders, ";") {
-		words := strings.Split(line, " ")
-		if len(words) < 1 {
-			logger.Fatalln("At least one builder must be specified")
-		}
-		userAndHost := words[0]
-		words = strings.Split(userAndHost, "@")
-		if len(words) < 1 {
-			logger.Fatalln("At least one builder must be specified")
-		}
-		host := words[len(words)-1]
-		hosts = append(hosts, host)
-		cmd := exec.Command("ssh-keyscan", "-p", "443", host)
-		output, err := cmd.Output()
-		if err != nil {
-			logger.Fatalln("Couldn't get host key", err)
-		}
-		hostKey := strings.TrimSpace(string(output))
-		logger.Println("Adding to known_hosts:", hostKey)
-		knownHosts = append(knownHosts, hostKey)
-	}
-
-	writeFile("/.ssh/config", sshConfigFor(hosts), 0600)
-	writeFile("/.ssh/known_hosts", strings.Join(knownHosts, "\n"), 0600)
-	writeFile(config.PrivateSSHKeyPath, config.PrivateSSHKey+"\n", 0600)
-
-	// FIXME: hack until the image builder is fixed again
-	writeFile("/etc/passwd", "root:x:0:0:root:/:/bin/sh", 0644)
-	writeFile("/etc/nix/nix.conf", "build-users-group =", 0600)
-}
-
-func sshConfigFor(hosts []string) string {
-	content := []string{}
-	for _, host := range hosts {
-		content = append(content, "Host "+host, "Port 443", "User root")
-	}
-	return strings.Join(content, "\n")
-}
-
-func writeFile(dest, content string, mode os.FileMode) {
-	logger.Println("Writing", dest)
-	dir := filepath.Dir(dest)
-	err := os.MkdirAll(dir, 0700)
-	if err != nil {
-		logger.Fatalln("Couldn't create directory:", dir, err)
-	}
-
-	err = ioutil.WriteFile(dest, []byte(content), mode)
-	if err != nil {
-		logger.Fatalln("Couldn't write file:", dest, err)
-	}
 }

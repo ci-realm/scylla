@@ -1,0 +1,1 @@
+{ hello = (import <nixpkgs> { }).hello; }

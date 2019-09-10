@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html class="has-navbar-fixed-top">
+
+<head>
+    <meta charset="UTF-8" />
+    <title>Main</title>
+    <script src="/static/js/websocket.js"></script>
+    <script src="/static/js/scroll.js"></script>
+    <script src="/static/js/Main.js"></script>
+</head>
+
+<body>
+    <div id="app"></div>
+    <script>
+        app = Elm.Main.init({
+            node: document.getElementById("app"),
+            flags: undefined
+        });
+        ElmWS.init(app);
+        ElmScroll.init(app);
+    </script>
+</body>
+
+</html>

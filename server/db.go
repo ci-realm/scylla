@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -32,14 +31,6 @@ func SetupDB() {
 
 	pgxcfg.LogLevel = pgx.LogLevelWarn
 	pgxcfg.Logger = pgxLogger{}
-
-	if os.Getenv("HOST") != "" && strings.Contains(config.DatabaseURL, "amazonaws.com") {
-		tunnelStarted := make(chan bool)
-		go setupDatabaseTunnel(tunnelStarted)
-		<-tunnelStarted
-		pgxcfg.Port = localDBPort
-		pgxcfg.Host = "127.0.0.1"
-	}
 
 	pgxpool, err = pgx.NewConnPool(pgx.ConnPoolConfig{
 		ConnConfig:     pgxcfg,

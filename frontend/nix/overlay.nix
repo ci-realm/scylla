@@ -9,6 +9,7 @@ let
 
 in self: super: {
   go = super.go_1_12;
+  tagFromGit = self.git-info "git rev-parse --verify HEAD";
   mkShell = super.mkShell.override { stdenv = self.stdenvNoCC; };
   cachix = (import cachixSource { }).cachix;
   nodejs = super.nodejs-slim-10_x;
