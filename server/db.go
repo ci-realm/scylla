@@ -308,7 +308,7 @@ func (d dbProject) Link() string {
 	return "/builds/" + d.Name
 }
 
-func updateBuildStatus(job *githubJob, status string) {
+func updateBuildStatus(buildID int, status string) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	tx, err := pgxpool.BeginEx(ctx, nil)
 	defer func() { cancel(); _ = tx.Rollback() }()
@@ -323,7 +323,7 @@ func updateBuildStatus(job *githubJob, status string) {
 		return
 	}
 
-	_, err = tx.ExecEx(ctx, `UPDATE builds SET status = $1, status_at = now() WHERE id = $2;`, nil, status, job.buildID)
+	_, err = tx.ExecEx(ctx, `UPDATE builds SET status = $1, status_at = now() WHERE id = $2;`, nil, status, buildID)
 	if err != nil {
 		logger.Println("Failed updating build status:", err)
 		return

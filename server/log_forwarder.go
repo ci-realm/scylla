@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/jackc/pgx"
-	"github.com/k0kubun/pp"
 )
 
 type logListener struct {
@@ -113,13 +112,11 @@ func listenLogs(pool *pgx.ConnPool, distribution chan *logLine) {
 		}
 
 		ll := dbLogLine{}
-		pp.Println(noti.Payload)
 		err = json.NewDecoder(bytes.NewBufferString(noti.Payload)).Decode(&ll)
 		if err != nil {
 			logger.Println(err)
 		}
-		pp.Println("forwarding line:", ll)
-    // rebuild for different JSON format
+		// rebuild for different JSON format
 		distribution <- &logLine{ID: ll.ID, BuildID: ll.BuildID, Line: ll.Line, Time: ll.Time}
 	}
 }

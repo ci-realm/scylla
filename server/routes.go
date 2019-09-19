@@ -12,10 +12,15 @@ func setupRouting(r *mux.Router) {
 	r.HandleFunc("/_system/alive", getAlive).Methods("GET")
 	r.HandleFunc("/builds/{id}/restart", postBuildsProjectIdRestart).Methods("GET")
 	r.HandleFunc("/hooks/github", postHooksGithub).Methods("POST")
+	r.HandleFunc("/hooks/gitlab", postHooksGitlab).Methods("POST")
 	r.HandleFunc("/socket", upgradeWebSocket).Methods("GET")
-  r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
 
-  r.PathPrefix("/").HandlerFunc(getIndex).Methods("GET")
+	if config.Mode == "development" {
+		r.PathPrefix("/").HandlerFunc(proxyIndex)
+	} else {
+		r.PathPrefix("/static/").Handler(http.StripPrefix("/static/", http.FileServer(http.Dir("static"))))
+		r.PathPrefix("/").HandlerFunc(getIndex)
+	}
 }
 
 var webSocketUpgrader = websocket.Upgrader{

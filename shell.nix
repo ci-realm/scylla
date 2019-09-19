@@ -4,6 +4,8 @@ pkgs.mkShell {
     cacert
     cachix
     dbmate
+    elm2nix
+    elmPackages.elm
     gcc
     git
     go
@@ -18,8 +20,7 @@ pkgs.mkShell {
     vgo2nix
     yarn
     yarn2nix
-    elmPackages.elm
-    elm2nix
+    bubblewrap
   ];
   PERL5LIB = "${pkgs.git.outPath}/lib/perl5/site_perl/5.28.0";
 

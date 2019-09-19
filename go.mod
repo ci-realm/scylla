@@ -37,9 +37,10 @@ require (
 	github.com/sourcegraph/ctxvfs v0.0.0-20180418081416-2b65f1b1ea81 // indirect
 	github.com/sourcegraph/go-langserver v2.0.0+incompatible // indirect
 	github.com/sourcegraph/jsonrpc2 v0.0.0-20190106185902-35a74f039c6a // indirect
+	github.com/xanzy/go-gitlab v0.20.1 // indirect
 	github.com/yosida95/golang-jenkins v0.0.0-20180820015451-e659c8a6f335
 	golang.org/x/net v0.0.0-20190827160401-ba9fcec4b297 // indirect
-	golang.org/x/tools v0.0.0-20190827205025-b29f5f60c37a // indirect
+	golang.org/x/tools/gopls v0.1.5 // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
 	gopkg.in/go-playground/webhooks.v5 v5.3.0
 )

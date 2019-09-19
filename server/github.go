@@ -35,6 +35,17 @@ type githubJob struct {
 }
 
 func postHooksGithub(w http.ResponseWriter, r *http.Request) {
+	githubEvent := r.Header.Get("X-Github-Event")
+	switch githubEvent {
+	case "ping":
+		githubPong(w, r)
+		return
+	default:
+		logger.Printf("Github Event: %s\n", githubEvent)
+		writeJSON(w, 200, map[string]string{"status": "IGNORED"})
+		return
+	}
+
 	hook, err := github.New()
 	if err != nil {
 	}
@@ -64,6 +75,10 @@ func postHooksGithub(w http.ResponseWriter, r *http.Request) {
 	}
 
 	writeJSON(w, 200, map[string]string{"status": "IGNORED"})
+}
+
+func githubPong(w http.ResponseWriter, r *http.Request) {
+	writeJSON(w, 200, map[string]string{"status": "PONG"})
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
@@ -329,6 +344,7 @@ func (j *githubJob) nix(subcmd string, args ...string) (*bytes.Buffer, error) {
 }
 
 func (j *githubJob) nixInstantiate() ([]string, error) {
+	logger.Println("nix-instantiate", j.pname())
 	drvs := []string{}
 
 	out, err := j.runCmd(exec.Command("nix-instantiate",
@@ -355,7 +371,9 @@ func (j *githubJob) nixInstantiate() ([]string, error) {
 }
 
 func (j *githubJob) nixBuild() error {
-	updateBuildStatus(j, "build")
+	logger.Println("nix-build", j.pname())
+
+	updateBuildStatus(j.buildID, "build")
 	j.status("pending", "Nix Build...")
 
 	output, err := j.nix(
@@ -365,7 +383,7 @@ func (j *githubJob) nixBuild() error {
 
 	if err != nil {
 		j.status("failure", err.Error())
-		updateBuildStatus(j, "failure")
+		updateBuildStatus(j.buildID, "failure")
 		return errors.New("Nix Failure: " + err.Error())
 	}
 
@@ -397,8 +415,14 @@ func (j *githubJob) writeOutputToDB(basename string, output []byte) {
 	}
 }
 
-func (j *githubJob) compactLog() error {
-	return compactLog(j.buildID)
+func (j *githubJob) compactLog() {
+	if err := compactLog(j.buildID); err != nil {
+		logger.Printf("%s: Failed compacting the log: %s\n", j.id(), err)
+		j.status("pending", "Compacting log of "+j.id()+" failed")
+	} else {
+		logger.Printf("%s: compactLog success\n", j.id())
+		j.status("pending", "Compacting log of "+j.id()+" succeeded")
+	}
 }
 
 func (j *githubJob) status(state, description string) {
@@ -414,18 +438,24 @@ func (j *githubJob) status(state, description string) {
 func (j *githubJob) onError(err error, msg string) {
 	logger.Printf("%s: %s: %s\n", j.id(), msg, err)
 	j.status("error", fmt.Sprintf("%s: %s", msg, err))
-	updateBuildStatus(j, "failure")
+	updateBuildStatus(j.buildID, "failure")
 
 	_ = os.RemoveAll(j.sourceDir())
 }
 
-func (j *githubJob) onSuccess() {
-	if err := j.compactLog(); err != nil {
-		logger.Printf("%s: Failed copying to cache: %s\n", j.id(), err)
-	}
+func (j *githubJob) impureSteps() {
+	logger.Printf("%s: deploy success\n", j.id())
+	j.status("pending", "Deploy of "+j.id()+" succeeded")
 
+	output, err := j.nix("build", "--out-link", j.resultLink(), "-f", j.ciNixPath())
+}
+
+func (j *githubJob) onSuccess() {
 	logger.Printf("%s: build success\n", j.id())
 	j.status("pending", "Evaluation of "+j.id()+" succeeded")
+
+	j.impureSteps()
+	j.compactLog()
 
 	// TODO: also remove outputs to allow GC
 	_ = os.RemoveAll(j.sourceDir())
@@ -435,21 +465,7 @@ func (j *githubJob) onSuccess() {
 
 	logger.Printf("%s: success\n", j.id())
 	j.status("success", fmt.Sprintf("Cached results of %s", j.id()))
-	updateBuildStatus(j, "success")
-
-	// for _, nixStorePath := range j.resultNixPaths() {
-	// 	// we'll just assume those are docker containers for now
-	// 	// we should get a list of docker containers from the ci.nix later.
-	// 	if strings.HasSuffix(nixStorePath, ".tar.gz") {
-	// 		logger.Println("Starting Jenkins job for", nixStorePath)
-	// 		err := startJenkinsJob("e-recruiting-api-team-nix-deployer", url.Values{
-	// 			"DOCKER_IMAGE_PATH": {nixStorePath},
-	// 		})
-	// 		if err != nil {
-	// 			logger.Println("Jenkins result:", err)
-	// 		}
-	// 	}
-	// }
+	updateBuildStatus(j.buildID, "success")
 }
 
 func (j *githubJob) resultNixPaths() []string {

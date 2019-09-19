@@ -35,4 +35,5 @@
   hello = all.hello;
   docker = all.docker;
   deep = pkgs.recurseIntoAttrs { };
+  wrap = pkgs.callPackage ./nix/wrap.nix {};
 }

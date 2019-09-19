@@ -3,6 +3,8 @@ package server
 import (
 	"io/ioutil"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 )
 
 func getIndex(w http.ResponseWriter, r *http.Request) {
@@ -12,12 +14,14 @@ func getIndex(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Write(indexHtml)
+}
 
-	// proxyTarget, err := url.Parse("http://localhost:8080")
-	// if err != nil {
-	// 	logger.Fatal(err)
-	// }
+func proxyIndex(w http.ResponseWriter, r *http.Request) {
+	proxyTarget, err := url.Parse("http://localhost:8000")
+	if err != nil {
+		logger.Fatal(err)
+	}
 
-	// proxy := httputil.NewSingleHostReverseProxy(proxyTarget)
-	// proxy.ServeHTTP(w, r)
+	proxy := httputil.NewSingleHostReverseProxy(proxyTarget)
+	proxy.ServeHTTP(w, r)
 }
