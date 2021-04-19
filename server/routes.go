@@ -12,7 +12,7 @@ func setupRouting(r *mux.Router) {
 	r.HandleFunc("/_system/alive", getAlive).Methods("GET")
 	r.HandleFunc("/builds/{id}/restart", postBuildsProjectIdRestart).Methods("GET")
 	r.HandleFunc("/hooks/github", postHooksGithub).Methods("POST")
-	r.HandleFunc("/hooks/gitlab", postHooksGitlab).Methods("POST")
+	// r.HandleFunc("/hooks/gitlab", postHooksGitlab).Methods("POST")
 	r.HandleFunc("/socket", upgradeWebSocket).Methods("GET")
 
 	if config.Mode == "development" {

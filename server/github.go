@@ -443,18 +443,18 @@ func (j *githubJob) onError(err error, msg string) {
 	_ = os.RemoveAll(j.sourceDir())
 }
 
-func (j *githubJob) impureSteps() {
-	logger.Printf("%s: deploy success\n", j.id())
-	j.status("pending", "Deploy of "+j.id()+" succeeded")
-
-	output, err := j.nix("build", "--out-link", j.resultLink(), "-f", j.ciNixPath())
-}
+// func (j *githubJob) impureSteps() {
+// 	logger.Printf("%s: deploy success\n", j.id())
+// 	j.status("pending", "Deploy of "+j.id()+" succeeded")
+//
+// 	output, err := j.nix("build", "--out-link", j.resultLink(), "-f", j.ciNixPath())
+// }
 
 func (j *githubJob) onSuccess() {
 	logger.Printf("%s: build success\n", j.id())
 	j.status("pending", "Evaluation of "+j.id()+" succeeded")
 
-	j.impureSteps()
+	// j.impureSteps()
 	j.compactLog()
 
 	// TODO: also remove outputs to allow GC
